@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MONKEY CITY: SIGNAL LOST</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- The whole game lives inside this wrapper. JS sizes it to an
+       integer-scaled 480x270 pixel canvas, HUD overlays sit on top. -->
+  <div id="game-wrap">
+
+    <!-- Low resolution game canvas (scaled up with nearest neighbour) -->
+    <canvas id="game-canvas" width="480" height="270"></canvas>
+
+    <!-- Subtle jungle vignette over the canvas (pure CSS) -->
+    <div id="vignette"></div>
+
+    <!-- ===================== HUD ===================== -->
+    <div id="hud" class="hidden">
+      <div id="hud-left">
+        <div class="bar-row">
+          <span class="bar-label">HP</span>
+          <div class="bar" id="bar-hp"><div class="fill" id="hp-fill"></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">STA</span>
+          <div class="bar" id="bar-st"><div class="fill" id="st-fill"></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">NANA</span>
+          <div class="bar small" id="bar-cd"><div class="fill" id="cd-fill"></div></div>
+        </div>
+      </div>
+      <div id="hud-right">
+        <div id="hud-parts">PARTS 0/6</div>
+        <div id="hud-score">SCORE 0</div>
+        <div id="hud-combo" class="hidden">COMBO x2</div>
+      </div>
+      <div id="objective">EXPLORE THE RUINS</div>
+    </div>
+
+    <!-- Popup message stack ("Part collected!" etc.) -->
+    <div id="msgs"></div>
+
+    <!-- ===================== SCREENS ===================== -->
+    <div id="screen-start" class="screen">
+      <div class="title-small">A JUNGLE RUIN ADVENTURE</div>
+      <h1 id="start-title">MONKEY CITY</h1>
+      <div class="subtitle">SIGNAL LOST</div>
+      <p class="intro">
+        You wake up in a forgotten city swallowed by jungle.<br>
+        The radio tower is dead. Find electronic parts,<br>
+        rebuild the signal, and call for rescue.
+      </p>
+      <div class="controls-box">
+        <div><b>WASD / ARROWS</b> move &nbsp;&nbsp; <b>MOUSE</b> aim &nbsp;&nbsp; <b>CLICK</b> throw banana</div>
+        <div><b>SHIFT</b> slide/dash &nbsp;&nbsp; <b>SPACE / R-CLICK</b> counter &nbsp;&nbsp; <b>E</b> interact</div>
+        <div><b>P</b> pause &nbsp;&nbsp; <b>M</b> mute &nbsp;&nbsp; <b>R</b> restart after win / game over</div>
+      </div>
+      <div id="start-hint" class="blink">CLICK OR PRESS ENTER TO START</div>
+    </div>
+
+    <div id="screen-pause" class="screen hidden">
+      <h1>PAUSED</h1>
+      <p class="intro">The monkeys are waiting...</p>
+      <div class="controls-box">
+        <div><b>WASD</b> move · <b>CLICK</b> throw · <b>SHIFT</b> slide · <b>SPACE</b> counter · <b>E</b> interact</div>
+      </div>
+      <div class="blink">PRESS P TO RESUME</div>
+    </div>
+
+    <div id="screen-over" class="screen hidden">
+      <h1 class="red">YOU FAINTED</h1>
+      <p class="intro">The monkey tribes drag you back to your camp...<br>The radio tower stays silent. For now.</p>
+      <div id="over-stats" class="stats"></div>
+      <div class="blink">PRESS R TO TRY AGAIN</div>
+    </div>
+
+    <div id="screen-win" class="screen hidden">
+      <h1 class="gold">RESCUED!</h1>
+      <p class="intro">
+        The signal device crackles to life and the helicopter lifts you<br>
+        out of the green ruins. Below, the monkeys keep their city.<br>
+        You keep your life. Fair trade.
+      </p>
+      <div id="win-stats" class="stats"></div>
+      <div class="blink">PRESS R TO PLAY AGAIN</div>
+    </div>
+
+  </div>
+
+  <noscript>This game needs JavaScript. Enable it and reload.</noscript>
+  <script src="game.js"></script>
+</body>
+</html>

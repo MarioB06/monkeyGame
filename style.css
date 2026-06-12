@@ -1,0 +1,270 @@
+/* ============================================================
+   MONKEY CITY: SIGNAL LOST  --  retro pixel-art styling
+   The canvas is a fixed 480x270 buffer scaled up by JS with
+   nearest-neighbour rendering. All HUD sizes use the --ui CSS
+   variable (set from JS) so the interface scales with the game.
+   ============================================================ */
+
+:root {
+  --ui: 2;                 /* integer scale factor, set by game.js   */
+  --ink: #e8e0c8;          /* HUD text colour                        */
+  --panel: rgba(12, 20, 12, 0.86);
+  --edge: #2a3a22;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #060a07;
+  /* subtle jungle gloom behind the letterboxed canvas */
+  background-image:
+    radial-gradient(ellipse at 50% 40%, #0c1410 0%, #060a07 70%);
+  font-family: "Courier New", Courier, monospace;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------- */
+/* Game wrapper: sized by JS to the scaled canvas dimensions  */
+/* --------------------------------------------------------- */
+#game-wrap {
+  position: relative;
+  width: 960px;             /* placeholder, JS overrides */
+  height: 540px;
+  box-shadow: 0 0 0 2px #000, 0 0 60px rgba(0,0,0,0.8);
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: none;                       /* custom crosshair drawn in-canvas */
+  image-rendering: pixelated;         /* nearest neighbour scaling */
+  image-rendering: crisp-edges;
+  background: #0a120c;
+}
+
+/* Static jungle vignette over the world (cheap atmosphere) */
+#vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(0,0,0,0) 55%,
+      rgba(4, 12, 6, 0.38) 100%);
+}
+
+/* --------------------------------------------------------- */
+/* HUD                                                        */
+/* --------------------------------------------------------- */
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--ink);
+  text-shadow: calc(var(--ui) * 1px) calc(var(--ui) * 1px) 0 #000;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+#hud-left {
+  position: absolute;
+  top: calc(var(--ui) * 5px);
+  left: calc(var(--ui) * 5px);
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: calc(var(--ui) * 2px);
+}
+
+.bar-label {
+  width: calc(var(--ui) * 22px);
+  font-size: calc(var(--ui) * 6px);
+  line-height: 1;
+}
+
+.bar {
+  width: calc(var(--ui) * 62px);
+  height: calc(var(--ui) * 6px);
+  background: #14100c;
+  border: calc(var(--ui) * 1px) solid #000;
+  box-shadow: inset 0 0 0 calc(var(--ui) * 1px) #3a3226;
+  position: relative;
+}
+.bar.small { width: calc(var(--ui) * 40px); }
+
+.bar .fill {
+  position: absolute;
+  inset: calc(var(--ui) * 1px);
+  width: 100%;
+  transform-origin: left;
+  background: #4ac24a;
+  transition: transform 0.08s linear, background 0.2s;
+}
+#hp-fill { background: #d8483a; }
+#st-fill { background: #3ab0d8; }
+#cd-fill { background: #e8c83a; }
+
+#hud-right {
+  position: absolute;
+  top: calc(var(--ui) * 5px);
+  right: calc(var(--ui) * 5px);
+  text-align: right;
+  font-size: calc(var(--ui) * 7px);
+  line-height: 1.7;
+}
+
+#hud-parts { color: #7ae08a; }
+#hud-combo { color: #f0b03a; animation: comboPulse 0.35s infinite alternate; }
+
+@keyframes comboPulse {
+  from { transform: scale(1); }
+  to   { transform: scale(1.12); }
+}
+
+#objective {
+  position: absolute;
+  bottom: calc(var(--ui) * 4px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: calc(var(--ui) * 6px);
+  color: #cfe6a8;
+  opacity: 0.92;
+}
+
+/* --------------------------------------------------------- */
+/* Popup messages                                             */
+/* --------------------------------------------------------- */
+#msgs {
+  position: absolute;
+  top: 16%;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--ui) * 2px);
+  pointer-events: none;
+}
+
+.msg {
+  background: var(--panel);
+  border: calc(var(--ui) * 1px) solid var(--edge);
+  box-shadow: calc(var(--ui) * 2px) calc(var(--ui) * 2px) 0 rgba(0,0,0,0.6);
+  color: var(--ink);
+  padding: calc(var(--ui) * 2px) calc(var(--ui) * 5px);
+  font-size: calc(var(--ui) * 7px);
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-shadow: calc(var(--ui) * 1px) calc(var(--ui) * 1px) 0 #000;
+  animation: msgPop 2.3s ease-out forwards;
+  white-space: nowrap;
+}
+.msg.good { color: #8ae88a; }
+.msg.bad  { color: #f08a6a; }
+.msg.gold { color: #f0d03a; }
+
+@keyframes msgPop {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.7); }
+  8%   { opacity: 1; transform: translateY(0)  scale(1.05); }
+  12%  { transform: scale(1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+/* --------------------------------------------------------- */
+/* Full screens (start / pause / game over / win)             */
+/* --------------------------------------------------------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(5, 10, 6, 0.82);
+  color: var(--ink);
+  text-shadow: calc(var(--ui) * 1px) calc(var(--ui) * 1px) 0 #000;
+  padding: calc(var(--ui) * 8px);
+  z-index: 5;
+}
+
+.hidden { display: none !important; }
+
+.screen h1 {
+  margin: calc(var(--ui) * 2px) 0;
+  font-size: calc(var(--ui) * 22px);
+  letter-spacing: calc(var(--ui) * 2px);
+  color: #f0d03a;
+  text-shadow:
+    calc(var(--ui) *  1px) calc(var(--ui) * 1px) 0 #5a3a10,
+    calc(var(--ui) *  2px) calc(var(--ui) * 2px) 0 #000;
+}
+.screen h1.red  { color: #e05a4a; text-shadow: calc(var(--ui) * 2px) calc(var(--ui) * 2px) 0 #000; }
+.screen h1.gold { color: #ffd84a; }
+
+.title-small {
+  font-size: calc(var(--ui) * 6px);
+  color: #7ab06a;
+  letter-spacing: calc(var(--ui) * 1px);
+}
+
+.subtitle {
+  font-size: calc(var(--ui) * 9px);
+  color: #9adf8a;
+  letter-spacing: calc(var(--ui) * 3px);
+  margin-bottom: calc(var(--ui) * 6px);
+}
+
+.intro {
+  font-size: calc(var(--ui) * 6px);
+  line-height: 1.8;
+  color: #cfd8b8;
+  margin: calc(var(--ui) * 4px) 0;
+}
+
+.controls-box {
+  border: calc(var(--ui) * 1px) solid var(--edge);
+  background: var(--panel);
+  padding: calc(var(--ui) * 4px) calc(var(--ui) * 6px);
+  font-size: calc(var(--ui) * 5.5px);
+  line-height: 2;
+  margin: calc(var(--ui) * 4px) 0;
+}
+.controls-box b { color: #f0d03a; }
+
+.stats {
+  font-size: calc(var(--ui) * 7px);
+  line-height: 1.9;
+  color: #e8e0c8;
+  margin: calc(var(--ui) * 4px) 0;
+}
+.stats b { color: #f0d03a; }
+
+.blink {
+  margin-top: calc(var(--ui) * 5px);
+  font-size: calc(var(--ui) * 6px);
+  color: #fff;
+  animation: blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.15; }
+}
