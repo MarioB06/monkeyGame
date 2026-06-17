@@ -92,6 +92,22 @@
   </div>
 
   <noscript>This game needs JavaScript. Enable it and reload.</noscript>
-  <script src="game.js"></script>
+
+  <!-- shared simulation modules (also used by the Node server) -->
+  <script src="src/config.js"></script>
+  <script src="src/mathutils.js"></script>
+  <script src="src/worldgen.js"></script>
+  <script src="src/sim.js"></script>
+  <script src="src/protocol.js"></script>
+  <!-- browser-only client modules -->
+  <script src="client/sprites.js"></script>
+  <script src="client/audio.js"></script>
+  <script src="client/fx.js"></script>
+  <script src="client/groundgen.js"></script>
+  <script src="client/render.js"></script>
+  <script src="client/input.js"></script>
+  <script src="client/ui.js"></script>
+  <!-- single-player boot (runs the sim locally) -->
+  <script src="client/app-offline.js"></script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+{
+  "name": "monkey-city-signal-lost",
+  "version": "1.0.0",
+  "description": "Pixel-art jungle-ruin adventure. Offline single-player runs from index.html (file://). Online competitive multiplayer via the Node + WebSocket server.",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node test/smoke-sim.js && node test/smoke-offline.js && node test/smoke-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}
