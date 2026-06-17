@@ -181,6 +181,9 @@
           P.add({ x: e.x + rand(-8, 8), y: e.y - rand(6, 20), vx: rand(-25, 25), vy: rand(-10, 10),
             z: 2, vz: rand(20, 50), grav: 140, life: 0.4, size: 1, col: pick(["#ffe680", "#9adfe8", "#fff"]), kind: "spark", layer: 1 }); break;
         case "buildDone": AudioSys.sfx("built"); this.camera.addShake(2); break;
+        case "climb": AudioSys.noise(0.16, 0.10, 1400);
+          P.add({ x: e.x, y: e.y - 30, vx: rand(-14, 14), vy: rand(4, 12), z: 6, life: 0.9, col: pick(["#3a7a36", "#4f9a44", "#caa84e"]), kind: "leaf", layer: 1 });
+          P.burst(e.x, e.y - 24, 5, { cols: ["#3a7a36", "#4f9a44"], spMax: 40, life: 0.6 }); break;
         case "msg": if ((e.pid == null || e.pid === local) && this.ui) this.ui.msg(e.text, e.cls); break;
       }
     }
@@ -236,11 +239,14 @@
         P.add({ x: spot.x + rand(-7, 7), y: spot.y - rand(4, 12), vz: 14, z: 2, life: 0.5, size: 1, col: "#fff8d0", kind: "spark", layer: 1 });
       }
     }
-    // slide smoke from sliding players
+    // slide smoke from sliding players + a faint leaf-rustle at occupied hide trees
     for (i = 0; i < snap.players.length; i++) {
       var pl = snap.players[i];
       if (pl.slideT > 0 && Math.random() < 0.6)
         P.add({ x: pl.x, y: pl.y, vx: rand(-16, 16), vy: 6, life: 0.4, size: 3, col: "#9a8a6a", kind: "smoke", layer: 1 });
+      if (pl.hidden && Math.random() < 0.10)     // subtle hint that someone is up there
+        P.add({ x: pl.x + rand(-8, 8), y: pl.y - 44, vx: rand(-5, 5), vy: rand(6, 12), z: 4, life: 0.9,
+          col: pick(["#3a7a36", "#4f9a44"]), kind: "leaf", layer: 1 });
     }
     // radio signal rings + beep
     if (snap.radioActive) {

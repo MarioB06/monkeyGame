@@ -324,6 +324,31 @@
     if (variant === 2) { px(g, 28, 30, 3, 2, "#f2d23c"); px(g, 29, 32, 2, 2, "#f2d23c"); }
     return m.c;
   }
+  // big climbable tree with a dark "hollow" you hide in (taller + wider than treeSprite)
+  function bigTreeSprite() {
+    var m = mk(64, 82), g = m.g;
+    var t1 = "#1a3a1c", t2 = "#27531f", t3 = "#357a30", hi = "#4f9a44";
+    var bark = "#4a3018", barkL = "#5e3e20", barkD = "#3a2412";
+    // trunk + root flare
+    px(g, 28, 50, 9, 30, bark);
+    px(g, 31, 50, 3, 30, barkL);
+    px(g, 26, 76, 13, 4, barkD);
+    px(g, 22, 78, 5, 3, barkD); px(g, 39, 78, 5, 3, barkD);
+    px(g, 30, 40, 3, 14, barkL);
+    // big multi-blob canopy
+    blob(g, 32, 30, 30, 20, t1);
+    blob(g, 24, 24, 20, 14, t2); blob(g, 42, 24, 18, 13, t2);
+    blob(g, 32, 16, 16, 11, t3);
+    blob(g, 18, 32, 11, 8, t2); blob(g, 46, 33, 11, 8, t2);
+    // hollow / perch where a player hides
+    blob(g, 32, 40, 9, 6, "#102310");
+    px(g, 28, 40, 8, 2, "#0a160a");
+    var rr = mulberry32(7321), i;
+    for (i = 0; i < 60; i++) px(g, 4 + rr() * 56, 6 + rr() * 40, 2, 1, rr() < 0.5 ? hi : t3);
+    for (i = 0; i < 6; i++) { var vx = 8 + Math.floor(rr() * 48); px(g, vx, 44, 1, 8 + Math.floor(rr() * 14), t1); }
+    px(g, 44, 42, 3, 2, "#f2d23c"); px(g, 45, 44, 2, 2, "#f2d23c");   // banana bunch
+    return m.c;
+  }
   function palmSprite() {
     var m = mk(36, 46), g = m.g;
     px(g, 16, 36, 4, 10, "#7a5a30"); px(g, 17, 28, 4, 9, "#8a6a3a");
@@ -534,6 +559,7 @@
     SPR.chest = { closed: chestSprite("closed"), cracked: chestSprite("cracked"), open: chestSprite("open") };
     SPR.heli = heliSprite();
     SPR.trees = [treeSprite(0), treeSprite(1), treeSprite(2), treeSprite(3)];
+    SPR.bigtree = bigTreeSprite();
     SPR.palms = [palmSprite()];
     SPR.bushes = [bushSprite(0), bushSprite(1)];
     SPR.rocks = [rockSprite()];
@@ -574,6 +600,7 @@
         case "rubble": return SPR.rubbles[o.variant % SPR.rubbles.length];
         case "rock": return SPR.rocks[0];
         case "tree": return SPR.trees[o.variant % SPR.trees.length];
+        case "bigtree": return SPR.bigtree;
         case "palm": return SPR.palms[0];
         case "bush": return SPR.bushes[o.variant % SPR.bushes.length];
       }

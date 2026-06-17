@@ -133,6 +133,18 @@
 
   Renderer.prototype.drawPlayer = function (g, p, snap, localPid, tNow) {
     if (!p.alive) return;                         // hidden while dead/respawning
+    if (p.hidden) {
+      // concealed: rivals see nothing (only the rustle in fx). You see yourself
+      // faded up in the canopy so you know you're hidden.
+      if (p.id === localPid) {
+        var set = SPR.players[p.slot] || SPR.player, spr = set.idle[0];
+        g.globalAlpha = 0.45;
+        g.drawImage(spr, Math.round(p.x - spr.width / 2), Math.round(p.y - 46 - spr.height + 1));
+        g.globalAlpha = 1;
+        drawTextShadow(g, "HIDDEN", p.x, p.y - 58, "#9adf8a", 1, 0.5);
+      }
+      return;
+    }
     var isWinner = snap.phase === "rescue" && snap.winnerPid === p.id;
     if (p.hurtT > 0 && Math.floor(tNow * 18) % 2 === 0 && snap.phase === "playing") {
       // blink, but still show tags below
@@ -256,6 +268,14 @@
     for (i = 0; i < snap.chests.length; i++) {
       var c = snap.chests[i], sp = this.layout.chestSpots[i];
       if (c.state !== "open" && sp && dist(local.x, local.y, sp.x, sp.y) < 30) drawTextShadow(g, "BONK IT!", sp.x, sp.y - 24, "#f0d03a", 1, 0.5);
+    }
+    // hide-tree prompts
+    if (local.hidden) {
+      drawTextShadow(g, "E: CLIMB DOWN", local.x, local.y - 50, "#9adf8a", 1, 0.5);
+    } else {
+      var ht = this.layout.hideTrees;
+      for (i = 0; i < ht.length; i++)
+        if (dist(local.x, local.y, ht[i].x, ht[i].y) < 24) { drawTextShadow(g, "E: HIDE IN TREE", ht[i].x, ht[i].y - 36, "#9adf8a", 1, 0.5); break; }
     }
   };
 

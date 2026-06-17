@@ -72,7 +72,8 @@
       solids: [],      // collision rects (walls + solid objects; NO chests)
       lamps: [],       // glow positions (visual)
       fires: [],       // fire positions (visual + particle anchor)
-      tufts: []        // animated grass {x,y,phase} (visual)
+      tufts: [],       // animated grass {x,y,phase} (visual)
+      hideTrees: []    // big climbable trees you can hide in {x,y}
     };
     layout.playerSpawn = layout.playerSpawns[0];
 
@@ -229,6 +230,12 @@
       addObj({ kind: "bush", variant: wri(0, 1), x: bx2, y: by3, solid: false });
       if (layout.objects.length > 460) break;
     }
+
+    /* ---- big climbable hide trees (fixed coords, no RNG draw -> map unchanged) ---- */
+    [[470, 250], [300, 470], [1080, 760], [980, 1080]].forEach(function (hp) {
+      addObj({ kind: "bigtree", variant: 0, x: hp[0], y: hp[1], collW: 12, collH: 9, solid: true });
+      layout.hideTrees.push({ x: hp[0], y: hp[1] });
+    });
 
     return layout;
   }

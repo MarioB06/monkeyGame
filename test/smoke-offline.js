@@ -152,6 +152,18 @@ step("game over via adjacent monkey, then restart", function () {
   frames(10);
 });
 
+step("hide tree: E toggles hidden through the client stack", function () {
+  var p = G.sim.players.p1; p.hurtT = 0;
+  var tree = G.layout.hideTrees[0];
+  p.x = tree.x; p.y = tree.y + 10;
+  keyDown("KeyE"); frames(2);
+  assert(p.hidden === true, "hidden after E next to a tree");
+  keyUp("KeyE"); frames(32);                 // wait out climbCd (0.4s) + reset the edge
+  keyDown("KeyE"); frames(2);
+  assert(p.hidden === false, "climbed down after E again");
+  keyUp("KeyE"); frames(4);
+});
+
 step("soak: 400 frames of random input", function () {
   var codes = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "Space", "KeyE"];
   for (var i = 0; i < 400; i++) {

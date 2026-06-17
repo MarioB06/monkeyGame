@@ -53,12 +53,13 @@
     this.score = 0; this.kills = 0; this.deaths = 0;
     this.combo = 0; this.comboT = 0; this.maxCombo = 0;
     this.building = false; this.buildT = 0; this.buildTickT = 0;
+    this.hidden = false; this.climbCd = 0;   // hiding up a big tree
     this.riseZ = 0;                   // rescue lift (winner only)
     this.input = { move: { x: 0, y: 0 }, aim: 0, aimDist: CONFIG.BANANA.RANGE, flags: 0 };
     this.prevFlags = 0;
   }
   Player.prototype.invulnerable = function () {
-    return this.hurtT > 0 || this.slideT > 0 || this.sim.phase !== "playing" || !this.alive;
+    return this.hurtT > 0 || this.slideT > 0 || this.hidden || this.sim.phase !== "playing" || !this.alive;
   };
   Player.prototype.controllable = function () {
     return this.sim.phase === "playing" && this.alive;
@@ -82,6 +83,7 @@
     this.counterT = Math.max(0, this.counterT - dt);
     this.counterCd = Math.max(0, this.counterCd - dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
+    this.climbCd = Math.max(0, this.climbCd - dt);
     this.stamDelay = Math.max(0, this.stamDelay - dt);
     if (this.comboT > 0 && (this.comboT -= dt) <= 0) this.resetCombo();
 
@@ -98,16 +100,16 @@
 
     // edge / held actions
     if (ctrl) {
-      if (f & FLAG.THROW) this.tryThrow();                       // auto-fire (cooldown-gated)
-      if ((f & FLAG.SLIDE) && !(pf & FLAG.SLIDE)) this.trySlide();
-      if ((f & FLAG.COUNTER) && !(pf & FLAG.COUNTER)) this.tryCounter();
-      if ((f & FLAG.INTERACT) && !(pf & FLAG.INTERACT)) this.interactEdge();
+      if (!this.hidden && (f & FLAG.THROW)) this.tryThrow();                       // auto-fire (cooldown-gated)
+      if (!this.hidden && (f & FLAG.SLIDE) && !(pf & FLAG.SLIDE)) this.trySlide();
+      if (!this.hidden && (f & FLAG.COUNTER) && !(pf & FLAG.COUNTER)) this.tryCounter();
+      if ((f & FLAG.INTERACT) && !(pf & FLAG.INTERACT)) this.interactEdge();        // climb up/down works while hidden
     }
     this.prevFlags = f;
 
     // movement
     var ax = 0, ay = 0;
-    if (ctrl) { ax = this.input.move.x; ay = this.input.move.y; }
+    if (ctrl && !this.hidden) { ax = this.input.move.x; ay = this.input.move.y; }
     this.moving = (ax !== 0 || ay !== 0) && this.slideT <= 0;
     var vx, vy;
     if (this.slideT > 0) {
@@ -184,6 +186,24 @@
   };
   Player.prototype.interactEdge = function () {
     var sim = this.sim, st = sim.layout.station, i, c;
+    // climb into / out of a big hide tree (works while hidden so you can descend)
+    if (this.climbCd <= 0) {
+      if (this.hidden) {
+        this.hidden = false; this.climbCd = 0.4;
+        sim.emit({ t: "climb", pid: this.id, x: this.x, y: this.y, up: false });
+        sim.emit({ t: "msg", pid: this.id, text: "CLIMBED DOWN", cls: "good" });
+        return;
+      }
+      var tree = sim.nearestHideTree(this.x, this.y, 24);
+      if (tree) {
+        this.hidden = true; this.climbCd = 0.4;
+        this.x = tree.x; this.y = tree.y;
+        this.slideT = 0; this.building = false; this.buildT = 0;
+        sim.emit({ t: "climb", pid: this.id, x: tree.x, y: tree.y, up: true });
+        sim.emit({ t: "msg", pid: this.id, text: "HIDDEN IN THE TREE", cls: "good" });
+        return;
+      }
+    }
     if (dist(this.x, this.y, st.doorX, st.doorY) < 40) {
       if (this.parts < CONFIG.PART_TOTAL) {
         sim.emit({ t: "denied", pid: this.id, x: this.x, y: this.y });
@@ -232,6 +252,7 @@
     this.x = sp.x; this.y = sp.y;
     this.hp = this.maxHp; this.alive = true;
     this.hurtT = 1.0; this.slideT = 0; this.cooldown = 0;
+    this.hidden = false; this.climbCd = 0;
     this.parts = 0; this.partIds = [];
     sim.emit({ t: "respawn", pid: this.id, x: this.x, y: this.y });
   };
@@ -584,9 +605,18 @@
     var best = null, bd = maxR || Infinity;
     for (var id in this.players) {
       var p = this.players[id];
-      if (!p.alive) continue;
+      if (!p.alive || p.hidden) continue;             // hidden players can't be seen/targeted
       var d = dist(x, y, p.x, p.y);
       if (d < bd) { bd = d; best = p; }
+    }
+    return best;
+  };
+  // nearest big hide tree (a {x,y} from layout.hideTrees) within maxR
+  Sim.prototype.nearestHideTree = function (x, y, maxR) {
+    var best = null, bd = maxR || Infinity, list = this.layout.hideTrees || [];
+    for (var i = 0; i < list.length; i++) {
+      var d = dist(x, y, list[i].x, list[i].y);
+      if (d < bd) { bd = d; best = list[i]; }
     }
     return best;
   };
@@ -599,7 +629,7 @@
     }
     for (var id in this.players) {
       if (id === exceptPid) continue;
-      var p = this.players[id]; if (!p.alive) continue;
+      var p = this.players[id]; if (!p.alive || p.hidden) continue;
       var dp = dist(x, y, p.x, p.y - 8); if (dp < bd) { bd = dp; best = p; kind = "p"; }
     }
     return best ? { ent: best, kind: kind } : null;
@@ -741,7 +771,7 @@
           if (!hit) {
             for (id in this.players) {
               var tp = this.players[id];
-              if (id === bn.owner || !tp.alive) continue;
+              if (id === bn.owner || !tp.alive || tp.hidden) continue;
               if (dist(bn.x, bn.y, tp.x, tp.y - 8) < 8) {
                 var dmg = bn.countered ? Math.round(CONFIG.MP.PVP_BANANA_DMG * CONFIG.BANANA.COUNTER_DMG_MULT)
                                        : CONFIG.MP.PVP_BANANA_DMG;
@@ -760,7 +790,7 @@
           // monkey-owned: hit any player
           for (id in this.players) {
             var vp = this.players[id];
-            if (!vp.alive) continue;
+            if (!vp.alive || vp.hidden) continue;
             if (dist(bn.x, bn.y, vp.x, vp.y - 8) < 8) {
               if (!vp.invulnerable()) { vp.hurt(bn.dmg, bn.x, bn.y, null); bn.impact(true); }
               break;
@@ -806,7 +836,7 @@
         moving: p.moving, slideT: p.slideT, hurtT: p.hurtT, counterT: p.counterT, goldT: p.goldT,
         cooldown: p.cooldown, parts: p.parts, partIds: p.partIds.slice(), alive: p.alive,
         respawnT: p.respawnT === Infinity ? -1 : p.respawnT, building: p.building, buildT: p.buildT,
-        riseZ: p.riseZ, score: p.score, kills: p.kills, combo: p.combo
+        hidden: p.hidden, riseZ: p.riseZ, score: p.score, kills: p.kills, combo: p.combo
       });
     }
     for (i = 0; i < this.monkeys.length; i++) {

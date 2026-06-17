@@ -33,6 +33,12 @@ with bananas**: a defeated player drops everything they were holding. First to
 gather all 6 and build the signal at the station **wins**; building takes a few
 seconds and can be interrupted, so the station is the real battleground.
 
+**Hiding:** scattered around the jungle are a few **big climbable trees**. Stand
+next to one and press **E** to climb up and hide — monkeys lose your trail and
+rivals can't see or hit you (they only spot a faint leaf-rustle). You can't act
+or grab parts while hidden, so it's a retreat, not a power move. Press **E**
+again to climb down.
+
 No build step: the server serves the same vanilla JS the browser runs.
 
 ## Controls
@@ -44,7 +50,7 @@ No build step: the server serves the same vanilla JS the browser runs.
 | Left click (hold) | Throw bananas |
 | Shift | Slide / dash (i-frames) |
 | Space / Right click | Counter — deflect an incoming banana |
-| E | Interact / **hold at the station** to build the signal |
+| E | Interact · **hold at the station** to build · **climb a big tree to hide** |
 | M | Mute · **P** pause (offline) · **R** restart (offline) |
 
 ## Architecture

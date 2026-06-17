@@ -130,6 +130,30 @@ step("MP: counter deflects an incoming banana", function () {
   assert(deflected, "counter deflected the banana");
 });
 
+step("hide trees: climb in -> concealed & invulnerable -> climb out", function () {
+  var sim = new Sim({ mode: "sp" });
+  assert(sim.layout.hideTrees.length >= 3 && sim.layout.hideTrees.length <= 4, "3-4 hide trees, got " + sim.layout.hideTrees.length);
+  sim.monkeys.length = 0;
+  var p = sim.addPlayer("p1");
+  var tree = sim.layout.hideTrees[0];
+  p.x = tree.x; p.y = tree.y + 10;                       // stand next to it (<24)
+  sim.setInput("p1", { move: { x: 0, y: 0 }, aim: 0, aimDist: 100, flags: FLAG.INTERACT });
+  sim.step(DT);
+  assert(p.hidden === true, "climbed in -> hidden");
+  assert(p.invulnerable() === true, "hidden is invulnerable");
+  assert(sim.nearestPlayer(p.x, p.y) === null, "hidden excluded from nearestPlayer");
+  // a banana aimed at the hidden player should pass through (no damage)
+  sim.setInput("p1", { flags: 0 });
+  var before = p.hp;
+  sim.spawnBanana({ owner: "m", x: p.x - 30, y: p.y - 8, angle: 0, range: 200, speed: 255, dmg: 50, arc: 4 });
+  run(sim, 30);
+  assert(p.hp === before, "hidden player not hit by banana");
+  // climb down (climbCd has expired; press E again for an edge)
+  sim.setInput("p1", { flags: FLAG.INTERACT });
+  sim.step(DT);
+  assert(p.hidden === false, "climbed down");
+});
+
 step("snapshot shape is serializable", function () {
   var sim = new Sim({ mode: "mp" });
   sim.addPlayer("A"); sim.addPlayer("B");
