@@ -206,9 +206,11 @@
 
   /* ---------------- monkey frames ---------------- */
   var MSPEC = {
-    normal: { W: 16, H: 15, fur: "#8a5a32", furD: "#6a4324", belly: "#caa06a", face: "#d8b088" },
-    guard:  { W: 18, H: 17, fur: "#6e4624", furD: "#523218", belly: "#b08a52", face: "#c8a070" },
-    alpha:  { W: 26, H: 22, fur: "#54341c", furD: "#3c2412", belly: "#9a7444", face: "#b89060" }
+    normal: { W: 16, H: 15, fur: "#8a5a32", furD: "#6a4324", belly: "#caa06a", face: "#d8b088", eye: "#1a120a" },
+    guard:  { W: 18, H: 17, fur: "#6e4624", furD: "#523218", belly: "#b08a52", face: "#c8a070", eye: "#1a120a" },
+    // dark: charcoal/violet jungle monkey with glowing red eyes
+    dark:   { W: 16, H: 15, fur: "#39283c", furD: "#22162a", belly: "#52425a", face: "#5e4e66", eye: "#ff3a2a" },
+    alpha:  { W: 26, H: 22, fur: "#54341c", furD: "#3c2412", belly: "#9a7444", face: "#b89060", eye: "#1a120a" }
   };
   function monkeyFrame(type, pose) {
     var s = MSPEC[type], big = type === "alpha", W = s.W, H = s.H;
@@ -234,11 +236,12 @@
     px(g, hx, hy + 3, 1, 1, "#c87a6a"); px(g, hx + hw - 1, hy + 3, 1, 1, "#c87a6a");
     var ey = hy + (big ? 4 : 3);
     if (pose === "hit") {
-      px(g, hx + 3, ey, 1, 1, "#1a120a"); px(g, hx + 5, ey, 1, 1, "#1a120a");
+      px(g, hx + 3, ey, 1, 1, s.eye); px(g, hx + 5, ey, 1, 1, s.eye);
       px(g, hx + 4, ey + 2, 2, 1, "#5a1f14");
     } else {
-      px(g, hx + 3, ey, 1, 1, "#1a120a"); px(g, hx + (big ? 7 : 5), ey, 1, 1, "#1a120a");
+      px(g, hx + 3, ey, 1, 1, s.eye); px(g, hx + (big ? 7 : 5), ey, 1, 1, s.eye);
       if (big) { px(g, hx + 2, ey - 1, 3, 1, s.furD); px(g, hx + 6, ey - 1, 3, 1, s.furD); }
+      if (type === "dark") { px(g, hx + 2, ey - 1, 2, 1, "#120a14"); px(g, hx + 5, ey - 1, 2, 1, "#120a14"); }  // angry brow
     }
     px(g, hx + (big ? 5 : 4), ey + 2, 1, 1, s.furD);
     if (big) px(g, hx + hw - 3, ey + 3, 1, 2, "#d8c0a0");
@@ -275,24 +278,33 @@
       "...tt...", "..tyyt..", ".tyYyt..", ".tyYt...", "tyYy....", "tyyt....", ".tt....."
     ], { t: tip, y: body, Y: shade }));
   }
-  function chestSprite(state) {
+  // region-themed chest palettes
+  var CHEST_PAL = {
+    wood:   { wood: "#8a5430", woodL: "#a06a40", woodD: "#5e3a20", met: "#9aa0aa", metD: "#6a7078", lock: "#d8b03a", lockD: "#5e3a20", glow: "#f0d03a", crack: "#241608" },
+    metal:  { wood: "#7a828c", woodL: "#9aa2ac", woodD: "#525860", met: "#caa84e", metD: "#8a7030", lock: "#caa84e", lockD: "#3a3e44", glow: "#9adfe8", crack: "#2a2e34" },
+    dark:   { wood: "#3a2c3e", woodL: "#52425a", woodD: "#241824", met: "#c8c0b0", metD: "#7a7468", lock: "#a83a4a", lockD: "#3a1018", glow: "#ff5a4a", crack: "#0e0810" },
+    sunken: { wood: "#4a6a5a", woodL: "#6a8a76", woodD: "#2e463c", met: "#8a8a72", metD: "#5a5a48", lock: "#9ab0a0", lockD: "#2e463c", glow: "#7adfe0", crack: "#16241e" }
+  };
+  function chestSprite(state, style) {
+    var P = CHEST_PAL[style] || CHEST_PAL.wood;
     var m = mk(18, 14), g = m.g;
-    var wood = "#8a5430", woodL = "#a06a40", woodD = "#5e3a20", met = "#9aa0aa", metD = "#6a7078";
     if (state === "open") {
-      px(g, 1, 0, 16, 4, woodD); px(g, 2, 1, 14, 2, wood);
-      px(g, 2, 4, 14, 3, "#241608"); px(g, 4, 4, 10, 2, "#f0d03a");
-      px(g, 1, 7, 16, 6, wood); px(g, 1, 7, 16, 1, woodL);
-      px(g, 3, 7, 2, 6, metD); px(g, 13, 7, 2, 6, metD);
+      px(g, 1, 0, 16, 4, P.woodD); px(g, 2, 1, 14, 2, P.wood);
+      px(g, 2, 4, 14, 3, "#1a120c"); px(g, 4, 4, 10, 2, P.glow);
+      px(g, 1, 7, 16, 6, P.wood); px(g, 1, 7, 16, 1, P.woodL);
+      px(g, 3, 7, 2, 6, P.metD); px(g, 13, 7, 2, 6, P.metD);
     } else {
-      px(g, 2, 1, 14, 2, woodL); px(g, 1, 3, 16, 4, wood); px(g, 1, 7, 16, 6, wood);
-      px(g, 1, 7, 16, 1, woodD); px(g, 2, 10, 14, 1, woodD);
-      px(g, 3, 1, 2, 12, met);  px(g, 13, 1, 2, 12, met);
-      px(g, 3, 3, 2, 1, metD);  px(g, 13, 3, 2, 1, metD);
-      px(g, 8, 6, 3, 4, "#d8b03a"); px(g, 9, 8, 1, 1, "#5e3a20");
+      px(g, 2, 1, 14, 2, P.woodL); px(g, 1, 3, 16, 4, P.wood); px(g, 1, 7, 16, 6, P.wood);
+      px(g, 1, 7, 16, 1, P.woodD); px(g, 2, 10, 14, 1, P.woodD);
+      px(g, 3, 1, 2, 12, P.met);  px(g, 13, 1, 2, 12, P.met);
+      px(g, 3, 3, 2, 1, P.metD);  px(g, 13, 3, 2, 1, P.metD);
+      px(g, 8, 6, 3, 4, P.lock); px(g, 9, 8, 1, 1, P.lockD);
+      if (style === "sunken") { px(g, 4, 11, 2, 1, "#3a8a5a"); px(g, 12, 11, 2, 1, "#3a8a5a"); }  // algae
+      if (style === "dark") { px(g, 2, 4, 1, 1, P.glow); px(g, 15, 4, 1, 1, P.glow); }              // eerie glints
       if (state === "cracked") {
-        px(g, 6, 2, 1, 2, "#241608"); px(g, 7, 4, 1, 2, "#241608");
-        px(g, 6, 6, 1, 3, "#241608"); px(g, 11, 3, 1, 3, "#241608");
-        px(g, 8, 6, 3, 4, woodD);
+        px(g, 6, 2, 1, 2, P.crack); px(g, 7, 4, 1, 2, P.crack);
+        px(g, 6, 6, 1, 3, P.crack); px(g, 11, 3, 1, 3, P.crack);
+        px(g, 8, 6, 3, 4, P.woodD);
       }
     }
     return outlined(m.c);
@@ -515,6 +527,53 @@
     for (i = 0; i < w / 6; i++) px(g, rr() * (w - 4), h - 5 + rr() * 3, 3 + rr() * 4, 2, rr() < 0.5 ? "#3a6a32" : "#41773a");
     return m.c;
   }
+  // small workshop / shed where you build the raft
+  function workshopSprite() {
+    var m = mk(44, 38), g = m.g;
+    var wall = "#7a6a4a", wallD = "#5a4c34", roof = "#8a3a2a", roofD = "#642a1e", wood = "#6a4a28";
+    px(g, 4, 18, 36, 20, wall); px(g, 4, 18, 36, 2, "#94855f");
+    for (var i = 0; i < 4; i++) px(g, 4, 22 + i * 4, 36, 1, wallD);     // planks
+    px(g, 0, 10, 44, 9, roof); px(g, 0, 10, 44, 2, "#a8513a"); px(g, 0, 17, 44, 2, roofD);
+    px(g, 20, 4, 4, 8, "#4a4e54"); px(g, 19, 3, 6, 2, "#2a2e34");       // chimney/vent
+    px(g, 16, 24, 12, 14, "#2a1c12"); px(g, 17, 25, 10, 2, wood);       // doorway
+    px(g, 6, 22, 8, 7, "#3a5a64"); px(g, 7, 23, 6, 5, "#22343a");       // window
+    px(g, 30, 24, 8, 8, wood); px(g, 31, 25, 6, 1, "#8a6a3a");          // workbench
+    px(g, 31, 22, 1, 3, "#caa84e"); px(g, 35, 21, 1, 4, "#9aa0aa");     // tools on the bench
+    px(g, 5, 30, 3, 2, "#caa84e"); px(g, 36, 16, 4, 2, "#3a6a32");      // crate + moss
+    return outlined(m.c, "#1a140c");
+  }
+  // half-submerged ruin poking out of the water
+  function sunkenRuinSprite(v) {
+    var m = mk(26, 18), g = m.g;
+    var stone = "#7e8a86", stoneD = "#56635e", stoneL = "#94a09a", algae = "#2e6a4e";
+    if (v === 1) {                                  // broken column
+      px(g, 10, 2, 6, 14, stone); px(g, 11, 2, 2, 14, stoneL); px(g, 13, 2, 1, 14, stoneD);
+      px(g, 9, 4, 8, 1, stoneD); px(g, 9, 9, 8, 1, stoneD);
+    } else {                                        // broken wall corner
+      px(g, 2, 6, 12, 10, stone); px(g, 14, 9, 9, 7, stone);
+      px(g, 2, 6, 12, 1, stoneL); px(g, 14, 9, 9, 1, stoneL);
+      px(g, 6, 8, 3, 3, "#1c2630"); px(g, 16, 11, 3, 3, "#1c2630");     // dark window holes
+    }
+    px(g, 1, 14, 24, 2, algae); px(g, 4, 12, 3, 1, algae); px(g, 18, 13, 4, 1, algae);  // waterline algae
+    return outlined(m.c, "#1c2a28");
+  }
+  // bare dead tree for the dark zone
+  function deadTreeSprite(v) {
+    var m = mk(34, 46), g = m.g;
+    var bark = "#3a2e2a", barkD = "#241c1a", barkL = "#4e3e36";
+    px(g, 15, 22, 4, 24, bark); px(g, 16, 22, 1, 24, barkL); px(g, 14, 43, 6, 3, barkD);
+    // crooked bare branches
+    px(g, 17, 22, 7, 2, bark); px(g, 23, 16, 2, 8, bark); px(g, 24, 16, 4, 2, bark);
+    px(g, 10, 26, 7, 2, bark); px(g, 8, 20, 2, 8, bark); px(g, 6, 20, 4, 2, bark);
+    px(g, 16, 14, 2, 10, bark); px(g, 12, 10, 2, 6, bark); px(g, 20, 10, 2, 6, bark);
+    if (v === 1) px(g, 22, 24, 3, 2, "#5a3a1a");    // dangling dead vine stub
+    return outlined(m.c, "#120c0a");
+  }
+  function dockSprite() {
+    var m = mk(6, 10), g = m.g;
+    px(g, 2, 0, 2, 10, "#5a4326"); px(g, 2, 0, 1, 10, "#6e5530"); px(g, 1, 2, 4, 1, "#4a3620");
+    return outlined(m.c, "#1a120a");
+  }
 
   function buildSprites() {
     // per-player coloured sets (slot 0 == classic red)
@@ -526,7 +585,7 @@
     SPR.player = SPR.players[0];
 
     SPR.monkey = {};
-    ["normal", "guard", "alpha"].forEach(function (t) {
+    ["normal", "guard", "dark", "alpha"].forEach(function (t) {
       var s = {
         idle: [monkeyFrame(t, "idle0"), monkeyFrame(t, "idle1")],
         walk: [monkeyFrame(t, "walk0"), monkeyFrame(t, "walk1")],
@@ -556,8 +615,20 @@
     SPR.arrow = outlined(rowsSprite([
       "....g....", "...ggg...", "..ggggg..", ".ggggggg.", "ggggggggg", "...ggg...", "...ggg...", "...ggg..."
     ], { g: "#f0d03a" }), "#3a2a08");
-    SPR.chest = { closed: chestSprite("closed"), cracked: chestSprite("cracked"), open: chestSprite("open") };
+    // region-themed chest sprite sets
+    SPR.chestStyles = {};
+    ["wood", "metal", "dark", "sunken"].forEach(function (st) {
+      SPR.chestStyles[st] = { closed: chestSprite("closed", st), cracked: chestSprite("cracked", st), open: chestSprite("open", st) };
+    });
+    SPR.chest = SPR.chestStyles.wood;          // default
     SPR.heli = heliSprite();
+    SPR.workshop = workshopSprite();
+    SPR.sunkenruins = [sunkenRuinSprite(0), sunkenRuinSprite(1)];
+    SPR.deadtrees = [deadTreeSprite(0), deadTreeSprite(1)];
+    SPR.dock = dockSprite();
+    SPR.raft = outlined(rowsSprite([     // little HUD raft icon
+      "wwwwww", "w.ww.w", "wwwwww", ".w..w."
+    ], { w: "#8a6a3a" }), "#3a2a14");
     SPR.trees = [treeSprite(0), treeSprite(1), treeSprite(2), treeSprite(3)];
     SPR.bigtree = bigTreeSprite();
     SPR.palms = [palmSprite()];
@@ -603,6 +674,10 @@
         case "bigtree": return SPR.bigtree;
         case "palm": return SPR.palms[0];
         case "bush": return SPR.bushes[o.variant % SPR.bushes.length];
+        case "workshop": return SPR.workshop;
+        case "sunkenruin": return SPR.sunkenruins[o.variant % SPR.sunkenruins.length];
+        case "deadtree": return SPR.deadtrees[o.variant % SPR.deadtrees.length];
+        case "dock": return SPR.dock;
       }
       return null;
     };

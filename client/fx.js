@@ -184,6 +184,8 @@
         case "climb": AudioSys.noise(0.16, 0.10, 1400);
           P.add({ x: e.x, y: e.y - 30, vx: rand(-14, 14), vy: rand(4, 12), z: 6, life: 0.9, col: pick(["#3a7a36", "#4f9a44", "#caa84e"]), kind: "leaf", layer: 1 });
           P.burst(e.x, e.y - 24, 5, { cols: ["#3a7a36", "#4f9a44"], spMax: 40, life: 0.6 }); break;
+        case "raft": AudioSys.sfx("power");
+          P.burst(e.x, e.y - 6, 8, { cols: ["#8a6a3a", "#caa84e", "#9adfe8"], spMax: 60, life: 0.7 }); break;
         case "msg": if ((e.pid == null || e.pid === local) && this.ui) this.ui.msg(e.text, e.cls); break;
       }
     }
@@ -206,6 +208,24 @@
       this.fireflyT = 0.35;
       P.add({ x: cam.x + rand(0, CONFIG.VIEW_W), y: cam.y + rand(0, CONFIG.VIEW_H), vx: rand(-8, 8), vy: rand(-5, 5),
         z: rand(6, 16), vz: rand(-3, 3), life: 2.2, size: 1, col: "#d8e87a", kind: "spark", layer: 1 });
+    }
+    // water shimmer over the flooded area
+    if (this.layout.water && this.layout.water.length && Math.random() < 0.6) {
+      var wxx = cam.x + rand(0, CONFIG.VIEW_W), wyy = cam.y + rand(0, CONFIG.VIEW_H);
+      for (i = 0; i < this.layout.water.length; i++) { var wr2 = this.layout.water[i];
+        if (wxx > wr2.l && wxx < wr2.r && wyy > wr2.t && wyy < wr2.b) {
+          P.add({ x: wxx, y: wyy, vx: rand(-4, 4), vy: rand(-2, 2), life: 0.6, size: 1, col: Math.random() < 0.5 ? "#5adfe0" : "#9af0f0", kind: "spark", layer: 1 }); break;
+        }
+      }
+    }
+    // drifting ash in the dark zone
+    if (this.layout.darkZones && Math.random() < 0.5) {
+      var axx = cam.x + rand(0, CONFIG.VIEW_W), ayy = cam.y + rand(0, CONFIG.VIEW_H);
+      for (i = 0; i < this.layout.darkZones.length; i++) { var dz2 = this.layout.darkZones[i];
+        if (axx > dz2.l && axx < dz2.r && ayy > dz2.t && ayy < dz2.b) {
+          P.add({ x: axx, y: ayy, vx: rand(-6, 6), vy: rand(4, 12), z: rand(6, 20), vz: -rand(2, 6), life: 1.6, size: 1, col: Math.random() < 0.5 ? "#3a2e2a" : "#4a3a30", kind: "leaf", layer: 1 }); break;
+        }
+      }
     }
     this.fireT -= dt;
     if (this.fireT <= 0) {

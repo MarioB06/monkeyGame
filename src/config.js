@@ -11,7 +11,7 @@
 
   var CONFIG = {
     VIEW_W: 480, VIEW_H: 270,          // internal pixel resolution
-    WORLD_W: 1600, WORLD_H: 1200,      // world size in pixels
+    WORLD_W: 3200, WORLD_H: 2400,      // world size in pixels (large 4x map)
     WORLD_SEED: 20260612,              // default seed -> same map every run
 
     PLAYER: {
@@ -47,20 +47,25 @@
     },
 
     // Per-type monkey stats. catch = chance to catch an incoming banana.
+    // windup = telegraph time before a throw (lower = attacks faster).
     MONKEY: {
       normal: { hp: 50,  speed: 56, aggro: 125, throwRange: 100, catch: 0.12,
-                meleeDmg: 8,  throwDmg: 10, throwCd: [1.6, 2.6], score: 100, scale: 1   },
+                meleeDmg: 8,  throwDmg: 10, throwCd: [1.6, 2.6], windup: 0.45, score: 100, scale: 1   },
       guard:  { hp: 80,  speed: 64, aggro: 150, throwRange: 115, catch: 0.30,
-                meleeDmg: 11, throwDmg: 12, throwCd: [1.3, 2.2], score: 200, scale: 1.18 },
+                meleeDmg: 11, throwDmg: 12, throwCd: [1.3, 2.2], windup: 0.45, score: 200, scale: 1.18 },
+      // dark: wilder jungle monkeys -- faster, longer reach, quicker attacks
+      dark:   { hp: 70,  speed: 80, aggro: 220, throwRange: 120, catch: 0.25,
+                meleeDmg: 13, throwDmg: 13, throwCd: [0.8, 1.5], windup: 0.30, score: 300, scale: 1.05 },
       alpha:  { hp: 230, speed: 72, aggro: 185, throwRange: 140, catch: 0.55,
-                meleeDmg: 16, throwDmg: 16, throwCd: [1.0, 1.7], score: 1000, scale: 1.7 }
+                meleeDmg: 16, throwDmg: 16, throwCd: [1.0, 1.7], windup: 0.40, score: 1000, scale: 1.7 }
     },
     MONKEY_LEASH: 150,        // wander distance from home
     MONKEY_ALERT_LEASH: 330,  // leash while angry
     CATCH_HOLD: [0.5, 0.95],  // how long a monkey holds a caught banana
 
     CHEST_HP: 2,              // banana hits to crack a chest open
-    PART_TOTAL: 6,            // electronic parts needed
+    PART_TOTAL: 10,           // electronic parts needed
+    RAFT_WADE_MULT: 0.6,      // movement speed while paddling across the ford
 
     DROPS: { HEART: 0.20, GOLD: 0.15 },  // monkey death drop chances
     HEART_HEAL: 30,

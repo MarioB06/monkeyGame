@@ -17,8 +17,9 @@ function aimAt(p, tx, ty) { return { aim: M.angTo(p.x, p.y, tx, ty), aimDist: M.
 
 step("construct SP sim", function () {
   var sim = new Sim({ mode: "sp" });
-  assert(sim.chests.length === 7, "7 chests, got " + sim.chests.length);
+  assert(sim.chests.length === 11, "11 chests (10 parts + bonus), got " + sim.chests.length);
   assert(sim.monkeys.length >= 12, "monkeys spawned: " + sim.monkeys.length);
+  assert(sim.monkeys.some(function (m) { return m.type === "dark"; }), "dark monkeys present");
   var snap = sim.snapshot();
   assert(snap.phase === "playing", "starts playing");
 });
@@ -54,7 +55,7 @@ step("SP: full win (6 parts -> build -> rescue -> over)", function () {
   var sim = new Sim({ mode: "sp" });
   sim.monkeys.length = 0;
   var p = sim.addPlayer("p1", "SOLO");
-  p.partIds = [0, 1, 2, 3, 4, 5]; p.parts = 6;
+  p.partIds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]; p.parts = 10;
   p.maxHp = p.hp = 100000;
   var st = sim.layout.station;
   p.x = st.doorX; p.y = st.doorY + 6;
@@ -132,7 +133,7 @@ step("MP: counter deflects an incoming banana", function () {
 
 step("hide trees: climb in -> concealed & invulnerable -> climb out", function () {
   var sim = new Sim({ mode: "sp" });
-  assert(sim.layout.hideTrees.length >= 3 && sim.layout.hideTrees.length <= 4, "3-4 hide trees, got " + sim.layout.hideTrees.length);
+  assert(sim.layout.hideTrees.length >= 4, "hide trees present, got " + sim.layout.hideTrees.length);
   sim.monkeys.length = 0;
   var p = sim.addPlayer("p1");
   var tree = sim.layout.hideTrees[0];
@@ -152,6 +153,37 @@ step("hide trees: climb in -> concealed & invulnerable -> climb out", function (
   sim.setInput("p1", { flags: FLAG.INTERACT });
   sim.step(DT);
   assert(p.hidden === false, "climbed down");
+});
+
+step("water + raft: ford blocks, workshop grants raft, then ford opens", function () {
+  var sim = new Sim({ mode: "sp" });
+  sim.monkeys.length = 0;
+  var p = sim.addPlayer("p1"); p.maxHp = p.hp = 100000;
+  var gate = sim.layout.waterGates[0];
+  var gx = (gate.l + gate.r) / 2;
+  // try to walk south through the ford without a raft -> blocked north of it
+  p.x = gx; p.y = gate.t - 8;
+  var i;
+  for (i = 0; i < 80; i++) { sim.setInput("p1", { move: { x: 0, y: 1 }, aim: 0, aimDist: 100, flags: 0 }); sim.step(DT); }
+  assert(p.y < gate.t + 2, "without raft the ford blocks (stuck north, y=" + Math.round(p.y) + ")");
+  assert(!p.hasRaft, "no raft yet");
+  // build the raft at the workshop
+  var ws = sim.layout.workshop; p.x = ws.x; p.y = ws.y + 8;
+  sim.setInput("p1", { move: { x: 0, y: 0 }, flags: FLAG.INTERACT }); sim.step(DT);
+  assert(p.hasRaft, "workshop granted the raft");
+  // now paddle across onto the island
+  p.x = gx; p.y = gate.t - 8;
+  for (i = 0; i < 160; i++) { sim.setInput("p1", { move: { x: 0, y: 1 }, aim: 0, aimDist: 100, flags: 0 }); sim.step(DT); }
+  assert(p.y > gate.b, "with raft the player crossed the ford onto the island (y=" + Math.round(p.y) + ")");
+});
+
+step("island chest is sunken-styled and carries a part", function () {
+  var sim = new Sim({ mode: "sp" });
+  var isl = sim.layout.island;
+  var spot = sim.layout.chestSpots.filter(function (s) { return s.x === isl.x && s.y === isl.y; })[0];
+  assert(spot, "a chest sits on the island");
+  assert(spot.style === "sunken", "island chest is sunken-styled");
+  assert(spot.partId != null, "island chest carries a part");
 });
 
 step("snapshot shape is serializable", function () {

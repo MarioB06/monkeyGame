@@ -50,8 +50,11 @@
     g.save();
     g.translate(-camX, -camY);
 
-    // ground
-    g.drawImage(layout.groundCanvas, 0, 0);
+    // ground -- blit only the visible slice (cheap on the large 4x map)
+    var gw = layout.groundCanvas.width, gh = layout.groundCanvas.height;
+    var sx0 = clamp(camX, 0, gw), sy0 = clamp(camY, 0, gh);
+    var sw = Math.min(CONFIG.VIEW_W, gw - sx0), sh = Math.min(CONFIG.VIEW_H, gh - sy0);
+    if (sw > 0 && sh > 0) g.drawImage(layout.groundCanvas, sx0, sy0, sw, sh, sx0, sy0, sw, sh);
 
     // animated grass tufts (in view)
     for (i = 0; i < layout.tufts.length; i++) {
@@ -84,7 +87,7 @@
     for (i = 0; i < draws.length; i++) {
       var d = draws[i], e = d.e;
       if (d.kind === "obj") g.drawImage(e.spr, Math.round(e.x - e.spr.width / 2), Math.round(e.y - e.spr.height));
-      else if (d.kind === "chest") { var cs = SPR.chest[e.state] || SPR.chest.closed; g.drawImage(cs, Math.round(d.sp.x - cs.width / 2), Math.round(d.sp.y - cs.height + 1)); }
+      else if (d.kind === "chest") { var set = SPR.chestStyles[d.sp.style] || SPR.chest; var cs = set[e.state] || set.closed; g.drawImage(cs, Math.round(d.sp.x - cs.width / 2), Math.round(d.sp.y - cs.height + 1)); }
       else if (d.kind === "pickup") this.drawPickup(g, e, tNow);
       else if (d.kind === "monkey") this.drawMonkey(g, e, tNow);
       else if (d.kind === "player") this.drawPlayer(g, e, snap, localPid, tNow);
@@ -100,6 +103,17 @@
 
     if (snap.heli) this.drawHeli(g, snap.heli, snap, tNow);
     this.drawGlows(g, snap, tNow);
+
+    // localized darkness over the dark zone (world space, on top of ground+objects)
+    if (layout.darkZones) {
+      g.fillStyle = "rgba(8, 6, 14, 0.40)";
+      for (i = 0; i < layout.darkZones.length; i++) {
+        var dz = layout.darkZones[i];
+        if (dz.r < camX || dz.l > camX + CONFIG.VIEW_W || dz.b < camY || dz.t > camY + CONFIG.VIEW_H) continue;
+        g.fillRect(dz.l, dz.t, dz.r - dz.l, dz.b - dz.t);
+      }
+    }
+
     this.drawWorldUI(g, snap, local, tNow);
 
     g.restore();
@@ -113,6 +127,8 @@
       g.strokeRect(3, 3, CONFIG.VIEW_W - 6, CONFIG.VIEW_H - 6); g.globalAlpha = 1;
     }
     this.drawObjectiveArrow(g, snap, local, tNow);
+    // raft acquired indicator (bottom-left)
+    if (local && local.hasRaft) { g.drawImage(SPR.raft, 6, CONFIG.VIEW_H - 16); drawText(g, "RAFT", 16, CONFIG.VIEW_H - 14, "#cfe6a8", 1, 0); }
     if (mouse && snap.phase === "playing") g.drawImage(SPR.crosshair, Math.round(mouse.x) - 4, Math.round(mouse.y) - 4);
 
     // rescue white-out
@@ -269,6 +285,10 @@
       var c = snap.chests[i], sp = this.layout.chestSpots[i];
       if (c.state !== "open" && sp && dist(local.x, local.y, sp.x, sp.y) < 30) drawTextShadow(g, "BONK IT!", sp.x, sp.y - 24, "#f0d03a", 1, 0.5);
     }
+    // workshop prompt
+    var ws = this.layout.workshop;
+    if (ws && dist(local.x, local.y, ws.x, ws.y) < 34)
+      drawTextShadow(g, local.hasRaft ? "RAFT READY" : "E: BUILD RAFT", ws.x, ws.y - 30, "#9adfe8", 1, 0.5);
     // hide-tree prompts
     if (local.hidden) {
       drawTextShadow(g, "E: CLIMB DOWN", local.x, local.y - 50, "#9adf8a", 1, 0.5);

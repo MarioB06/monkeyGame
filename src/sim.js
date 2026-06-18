@@ -54,6 +54,7 @@
     this.combo = 0; this.comboT = 0; this.maxCombo = 0;
     this.building = false; this.buildT = 0; this.buildTickT = 0;
     this.hidden = false; this.climbCd = 0;   // hiding up a big tree
+    this.hasRaft = false;                     // raft tool from the workshop (lets you cross the ford)
     this.riseZ = 0;                   // rescue lift (winner only)
     this.input = { move: { x: 0, y: 0 }, aim: 0, aimDist: CONFIG.BANANA.RANGE, flags: 0 };
     this.prevFlags = 0;
@@ -119,10 +120,15 @@
       vy = this.slideDY * C.SLIDE_SPEED * k;
       if (this.slideT <= 0) this.slideCd = C.SLIDE_CD;
     } else {
-      vx = ax * C.SPEED; vy = ay * C.SPEED;
+      var spd = C.SPEED;
+      // slow "wade" while paddling across the ford with the raft
+      if (this.hasRaft && pointBlocked(this.x, this.y, sim.waterGates)) spd *= (CONFIG.RAFT_WADE_MULT || 0.6);
+      vx = ax * spd; vy = ay * spd;
     }
     this.x += vx * dt; this.y += vy * dt;
-    var fix = resolveCircle(this.x, this.y, C.RADIUS, sim.solids);
+    // water is impassable; with a raft the ford (waterGates) opens for THIS player
+    var solidSet = this.hasRaft ? sim.solidsRaft : sim.solidsNoRaft;
+    var fix = resolveCircle(this.x, this.y, C.RADIUS, solidSet);
     this.x = clamp(fix.x, 20, CONFIG.WORLD_W - 20);
     this.y = clamp(fix.y, 20, CONFIG.WORLD_H - 20);
 
@@ -203,6 +209,18 @@
         sim.emit({ t: "msg", pid: this.id, text: "HIDDEN IN THE TREE", cls: "good" });
         return;
       }
+    }
+    // workshop: build a raft once, then you can paddle across the ford to the island
+    var ws = sim.layout.workshop;
+    if (ws && dist(this.x, this.y, ws.x, ws.y) < 34) {
+      if (!this.hasRaft) {
+        this.hasRaft = true;
+        sim.emit({ t: "raft", pid: this.id, x: this.x, y: this.y });
+        sim.emit({ t: "msg", pid: this.id, text: "RAFT BUILT - YOU CAN CROSS THE WATER", cls: "gold" });
+      } else {
+        sim.emit({ t: "msg", pid: this.id, text: "RAFT READY - HEAD TO THE FLOODED RUINS", cls: "good" });
+      }
+      return;
     }
     if (dist(this.x, this.y, st.doorX, st.doorY) < 40) {
       if (this.parts < CONFIG.PART_TOTAL) {
@@ -327,7 +345,7 @@
         if (!p) { this.state = "return"; break; }
         this.facing = p.x >= this.x ? 1 : -1;
         if (dist(this.x, this.y, lc.x, lc.y) > leashR * 1.9 && dP > aggroR) { this.state = "return"; break; }
-        if (dP < st.throwRange && this.throwCd <= 0 && dP > 26) { this.state = "windup"; this.stateT = 0.45; break; }
+        if (dP < st.throwRange && this.throwCd <= 0 && dP > 26) { this.state = "windup"; this.stateT = st.windup || 0.45; break; }
         if (dP < 15 && this.meleeCd <= 0) {
           if (p.hurt(st.meleeDmg, this.x, this.y, null)) {
             this.meleeCd = 1.15;
@@ -377,7 +395,7 @@
     if (vx || vy) {
       if (this.state === "wander" || this.state === "return") this.facing = vx >= 0 ? 1 : -1;
       this.x += vx * dt; this.y += vy * dt;
-      var fix = resolveCircle(this.x, this.y, this.radius, sim.solids);
+      var fix = resolveCircle(this.x, this.y, this.radius, sim.solidsNoRaft);   // monkeys never cross water/ford
       this.x = clamp(fix.x, 22, CONFIG.WORLD_W - 22);
       this.y = clamp(fix.y, 22, CONFIG.WORLD_H - 22);
     }
@@ -537,8 +555,9 @@
     opts = opts || {};
     this.mode = opts.mode || "mp";              // 'sp' | 'mp'
     this.layout = WorldGen.buildLayout(opts.seed != null ? opts.seed : CONFIG.WORLD_SEED);
-    this.wallSolids = this.layout.solids;        // bananas hit these (no chests)
-    this.solids = this.layout.solids.slice();    // movement solids (+ chests below)
+    this.wallSolids = this.layout.solids;        // bananas hit these (walls; no chests/water -> bananas fly over water)
+    this.solids = this.layout.solids.slice();    // movement solids (+ chests + water below)
+    this.waterGates = this.layout.waterGates || [];   // the ford: blocked unless the player has a raft
 
     this.players = {};
     this.order = [];                             // join order -> slot
@@ -558,7 +577,7 @@
     this._id = 1;
     this.events = [];
 
-    // chests + their guard monkeys
+    // chests + their guard monkeys (guard type can vary per region)
     var self = this;
     var guardOff = [[34, 10], [-30, 16], [28, -20], [-34, -12], [30, 14], [-28, 18], [26, 16]];
     this.layout.chestSpots.forEach(function (spot, i) {
@@ -567,13 +586,20 @@
       self.solids.push(c.rect());
       if (spot.guard) {
         var off = guardOff[i % guardOff.length];
-        var m = new Monkey(self, self._id++, spot.x + off[0], spot.y + off[1], "guard");
+        var m = new Monkey(self, self._id++, spot.x + off[0], spot.y + off[1], spot.guardType || "guard");
         m.guardChest = c; c.guards.push(m); self.monkeys.push(m);
       }
     });
     this.layout.monkeySpots.forEach(function (s) {
       self.monkeys.push(new Monkey(self, self._id++, s.x, s.y, s.type));
     });
+
+    // water is impassable for everyone; the ford is additionally blocked unless
+    // a player carries a raft. Precompute the two movement-solid sets.
+    var water = this.layout.water || [];
+    for (var wi = 0; wi < water.length; wi++) this.solids.push(water[wi]);
+    this.solidsRaft = this.solids;                       // ford open (player has raft)
+    this.solidsNoRaft = this.solids.concat(this.waterGates);  // ford closed (no raft / monkeys)
   }
   Sim.prototype.emit = function (ev) { this.events.push(ev); };
   Sim.prototype.nextId = function () { return this._id++; };
@@ -836,7 +862,7 @@
         moving: p.moving, slideT: p.slideT, hurtT: p.hurtT, counterT: p.counterT, goldT: p.goldT,
         cooldown: p.cooldown, parts: p.parts, partIds: p.partIds.slice(), alive: p.alive,
         respawnT: p.respawnT === Infinity ? -1 : p.respawnT, building: p.building, buildT: p.buildT,
-        hidden: p.hidden, riseZ: p.riseZ, score: p.score, kills: p.kills, combo: p.combo
+        hidden: p.hidden, hasRaft: p.hasRaft, riseZ: p.riseZ, score: p.score, kills: p.kills, combo: p.combo
       });
     }
     for (i = 0; i < this.monkeys.length; i++) {

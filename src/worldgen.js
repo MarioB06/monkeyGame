@@ -1,14 +1,22 @@
 /* ============================================================================
    WORLDGEN -- buildLayout(seed) returns PURE DATA describing the world:
-   spawns, collision solids, chest/monkey spots, static objects (as data, not
-   sprites), plus visual-only lists (tufts/lamps/fires) the client uses.
+   spawns, collision solids, water + crossing gates, chest/monkey spots, static
+   objects (as data, not sprites), plus visual-only lists the client uses.
 
-   SHARED: the server uses solids/spawns/chestSpots/monkeySpots; the client
-   additionally draws `objects` and paints the ground (see client/groundgen.js).
+   SHARED: the server uses solids/water/waterGates/spawns/chestSpots/monkeySpots;
+   the client additionally draws `objects` and paints the ground (groundgen.js).
 
-   IMPORTANT (determinism): layout uses its OWN mulberry32 stream so it stays
-   identical regardless of the separate ground-painting stream on the client.
-   Same seed -> same collision + same object positions on every machine.
+   Large 3200x2400 map, four regions wired together by roads/paths:
+     NW  jungle + chest grove (main spawn)
+     NE  expanded city (building grid + alleys, plaza, destroyed blocks) + the
+         radio station / tower / helipad (the win goal)
+     SW  sunken/flooded area: water (impassable), ruins, walkways, central island
+         (reachable only via a ford after building a raft at the workshop)
+     SE  dark zone: burnt/dead jungle with the aggressive "dark" monkeys
+
+   Gameplay-critical geometry (water, ford, island, workshop, station, roads,
+   spawns) uses FIXED coordinates; only scattered decoration draws from the
+   seeded RNG, so the map is identical on the server and every client.
    ========================================================================== */
 (function (root, factory) {
   if (typeof module !== "undefined" && module.exports)
@@ -17,200 +25,230 @@
     root.WorldGen = factory(root.CONFIG, root.MathUtils);
 })(typeof self !== "undefined" ? self : this, function (CONFIG, M) {
   "use strict";
-  var clamp = M.clamp, lerp = M.lerp, dist = M.dist, segDist = M.segDist,
-      mulberry32 = M.mulberry32;
+  var clamp = M.clamp, lerp = M.lerp, dist = M.dist, segDist = M.segDist, mulberry32 = M.mulberry32;
 
-  // collision rect for a feet-baseline object
   function rectOf(x, y, w, h) { return { l: x - w / 2, r: x + w / 2, t: y - h, b: y }; }
+  function inRect(x, y, r, pad) { pad = pad || 0; return x > r.l - pad && x < r.r + pad && y > r.t - pad && y < r.b + pad; }
 
   function buildLayout(seed) {
     var W = CONFIG.WORLD_W, H = CONFIG.WORLD_H;
-    var L = mulberry32((seed >>> 0) || 1);           // layout RNG stream
+    var L = mulberry32((seed >>> 0) || 1);
     function wr(a, b) { return a + L() * (b - a); }
     function wri(a, b) { return Math.floor(wr(a, b + 1)); }
 
     var layout = {
       seed: seed,
-      // four spread spawn points (SP uses index 0)
       playerSpawns: [
-        { x: 220,  y: 1000 },   // start camp (SW)
-        { x: 1380, y: 600  },   // eastern ruins (E)
-        { x: 780,  y: 1080 },   // open south (S)
-        { x: 120,  y: 600  }    // west road (W)
+        { x: 260, y: 980 },    // NW jungle (main)
+        { x: 1640, y: 360 },   // city west edge
+        { x: 320, y: 1340 },   // sunken north shore
+        { x: 1500, y: 1150 }   // central seam
       ],
-      station:  { x: 1320, y: 240, doorX: 1320, doorY: 256 },
-      towerTop: { x: 1430, y: 148 },
-      helipad:  { x: 1370, y: 468 },
+      station:  { x: 2820, y: 300, doorX: 2820, doorY: 316 },
+      towerTop: { x: 2940, y: 208 },
+      helipad:  { x: 2980, y: 560 },
+      workshop: { x: 1080, y: 1360 },
+      island:   { x: 720, y: 1890 },
+
+      // 10 part chests across all regions (+1 hidden bonus). style themes the sprite.
       chestSpots: [
-        { x: 180, y: 210,  guard: true,  partId: 0 },   // chest grove NW
-        { x: 350, y: 330,  guard: true,  partId: 1 },   // chest grove SE
-        { x: 830, y: 470,  guard: true,  partId: 2 },   // ruined plaza
-        { x: 1300, y: 1010, guard: true, partId: 3 },   // monkey camp
-        { x: 430, y: 724,  guard: true,  partId: 4 },   // overgrown street (west)
-        { x: 1480, y: 660, guard: true,  partId: 5 },   // eastern ruins
-        { x: 1532, y: 1116, guard: false, bonus: true } // hidden bonus chest
+        { x: 240,  y: 260,  guard: true, style: "wood",   partId: 0 },  // jungle grove NW
+        { x: 440,  y: 470,  guard: true, style: "wood",   partId: 1 },  // jungle grove SE
+        { x: 860,  y: 1000, guard: true, style: "wood",   partId: 2 },  // west jungle
+        { x: 2240, y: 760,  guard: true, style: "metal",  partId: 3 },  // city plaza
+        { x: 2560, y: 360,  guard: true, style: "metal",  partId: 4 },  // city destroyed block
+        { x: 1860, y: 980,  guard: true, style: "metal",  partId: 5 },  // city alley
+        { x: 2100, y: 1800, guard: true, guardType: "dark", style: "dark",   partId: 6 }, // dark zone
+        { x: 2750, y: 2050, guard: true, guardType: "dark", style: "dark",   partId: 7 }, // dark zone
+        { x: 300,  y: 1360, guard: true, style: "sunken", partId: 8 },  // sunken shore
+        { x: 720,  y: 1890, guard: true, guardType: "dark", style: "sunken", partId: 9 }, // ISLAND
+        { x: 1380, y: 260,  guard: false, bonus: true, style: "wood" }  // hidden bonus
       ],
+
       monkeySpots: [
-        { x: 520, y: 540, type: "normal" }, { x: 650, y: 700, type: "normal" },
-        { x: 900, y: 530, type: "normal" }, { x: 660, y: 380, type: "normal" },
-        { x: 860, y: 300, type: "normal" }, { x: 1150, y: 850, type: "normal" },
-        { x: 1350, y: 900, type: "normal" }, { x: 1200, y: 1020, type: "normal" },
-        { x: 1420, y: 1060, type: "normal" }, { x: 140, y: 360, type: "normal" },
-        { x: 1500, y: 770, type: "normal" },
-        { x: 1320, y: 300, type: "alpha" }              // boss guards the station
+        // city + jungle wanderers
+        { x: 1700, y: 420, type: "normal" }, { x: 1980, y: 720, type: "guard" },
+        { x: 2320, y: 520, type: "normal" }, { x: 2620, y: 920, type: "guard" },
+        { x: 940,  y: 420, type: "normal" }, { x: 620,  y: 720, type: "normal" },
+        { x: 1120, y: 320, type: "guard"  }, { x: 1320, y: 940, type: "normal" },
+        // dark zone pack
+        { x: 1900, y: 1600, type: "dark" }, { x: 2300, y: 1700, type: "dark" },
+        { x: 2050, y: 2050, type: "dark" }, { x: 2620, y: 1520, type: "dark" },
+        { x: 2860, y: 1820, type: "dark" }, { x: 3000, y: 2100, type: "dark" },
+        { x: 1760, y: 2150, type: "dark" }, { x: 2440, y: 1950, type: "dark" },
+        // island guardians
+        { x: 660, y: 1950, type: "dark" }, { x: 800, y: 1850, type: "dark" },
+        // station boss
+        { x: 2820, y: 380, type: "alpha" }
       ],
+
+      // roads (painted by groundgen; also used to keep trees off corridors)
+      roads: [
+        { dir: "h", x: 120,  y: 1180, w: 3000, h: 80 },  // main cross-map artery
+        { dir: "h", x: 1500, y: 600,  w: 1660, h: 70 },  // city main street
+        { dir: "v", x: 2060, y: 150,  w: 70,   h: 1050 },// city avenue
+        { dir: "v", x: 2740, y: 150,  w: 70,   h: 1050 },// city avenue
+        { dir: "v", x: 2380, y: 1180, w: 70,   h: 1140 },// city -> dark zone
+        { dir: "v", x: 760,  y: 1180, w: 70,   h: 300 }  // artery -> sunken shore
+      ],
+      plaza: { x: 2240, y: 860, r: 150 },
+      cityRect: { l: 1500, t: 120, r: 3160, b: 1160 },
+      darkZones: [{ l: 1620, t: 1320, r: 3160, b: 2340 }],
+
       paths: [
-        [[220, 950], [330, 820], [420, 700], [440, 616]],
-        [[560, 380], [470, 350], [420, 330]],
-        [[1280, 860], [1190, 740], [1120, 668]],
-        [[1320, 256], [1350, 380], [1370, 420]],
-        [[1255, 250], [1100, 330], [1010, 460], [940, 576]],
-        [[1370, 540], [1340, 700], [1300, 800]],
-        [[250, 400], [250, 520], [300, 564]]
+        [[260, 980], [520, 1060], [760, 1180]],
+        [[760, 1460], [900, 1400], [1080, 1380]],
+        [[1080, 1380], [1260, 1240], [1380, 1180]],
+        [[240, 320], [380, 420], [560, 520], [860, 1000]],
+        [[1380, 260], [1500, 360]]
       ],
-      objects: [],     // {kind, x, y, variant, w, h, bseed, broken, solid}
-      solids: [],      // collision rects (walls + solid objects; NO chests)
-      lamps: [],       // glow positions (visual)
-      fires: [],       // fire positions (visual + particle anchor)
-      tufts: [],       // animated grass {x,y,phase} (visual)
-      hideTrees: []    // big climbable trees you can hide in {x,y}
+
+      // sunken area: impassable water + the single raft-gated crossing
+      water: [
+        { l: 220, r: 690,  t: 1450, b: 1770 },   // north-west of island (flanks walkway)
+        { l: 750, r: 1300, t: 1450, b: 1770 },   // north-east of island
+        { l: 220, r: 600,  t: 1770, b: 2010 },   // west of island
+        { l: 840, r: 1300, t: 1770, b: 2010 },   // east of island
+        { l: 220, r: 1300, t: 2010, b: 2300 }    // south of island
+      ],
+      waterGates: [{ l: 690, r: 750, t: 1700, b: 1805 }],  // the ford (needs raft)
+
+      objects: [], solids: [],
+      lamps: [], fires: [], tufts: [],
+      hideTrees: [[470, 250], [900, 700], [300, 760], [1180, 560], [1300, 1020], [820, 1250], [1450, 820]]
+        .map(function (p) { return { x: p[0], y: p[1] }; })
     };
     layout.playerSpawn = layout.playerSpawns[0];
 
-    function addObj(o) {
-      layout.objects.push(o);
-      if (o.solid) layout.solids.push(rectOf(o.x, o.y, o.collW, o.collH));
-      return o;
-    }
+    function addObj(o) { layout.objects.push(o); if (o.solid) layout.solids.push(rectOf(o.x, o.y, o.collW, o.collH)); return o; }
 
-    /* ---- world border solids (the jungle wall) ---- */
+    /* ---- world border solids ---- */
     layout.solids.push({ l: -40, t: -40, r: W + 40, b: 16 });
     layout.solids.push({ l: -40, t: H - 16, r: W + 40, b: H + 40 });
     layout.solids.push({ l: -40, t: 0, r: 16, b: H });
     layout.solids.push({ l: W - 16, t: 0, r: W + 40, b: H });
 
-    /* ---- ruined buildings ---- */
-    var builds = [
-      [250, 790, 170, 110], [560, 180, 170, 120], [1010, 190, 140, 100],
-      [480, 890, 160, 120], [980, 905, 140, 110], [130, 520, 120, 90]
-    ];
-    builds.forEach(function (b, bi) {
-      addObj({ kind: "building", x: b[0], y: b[1], w: b[2], h: b[3],
-               bseed: 100 + bi * 37, collW: b[2], collH: b[3] - 26, solid: true });
-    });
-
-    /* ---- radio station + tower ---- */
-    addObj({ kind: "station", x: layout.station.x, y: layout.station.y, collW: 130, collH: 46, solid: true });
-    addObj({ kind: "tower", x: 1430, y: 240, collW: 18, collH: 12, solid: true });
-
-    /* ---- crashed cars ---- */
-    addObj({ kind: "carH", variant: 0, x: 480, y: 640, collW: 38, collH: 12, solid: true });
-    addObj({ kind: "carH", variant: 1, x: 940, y: 604, collW: 38, collH: 12, solid: true });
-    addObj({ kind: "carH", variant: 2, x: 1240, y: 632, collW: 38, collH: 12, solid: true });
-    addObj({ kind: "carV", variant: 0, x: 760, y: 380, collW: 18, collH: 22, solid: true });
-    addObj({ kind: "carV", variant: 1, x: 310, y: 1052, collW: 18, collH: 22, solid: true });
-
-    /* ---- street lamps ---- */
-    var lampDefs = [
-      [240, 572, 0], [600, 572, 1], [960, 572, 0], [1320, 572, 0],
-      [420, 672, 0], [1140, 672, 1], [1480, 672, 0],
-      [706, 300, 0], [814, 520, 0], [706, 900, 0], [814, 1060, 1]
-    ];
-    lampDefs.forEach(function (Ld) {
-      addObj({ kind: "lamp", broken: !!Ld[2], x: Ld[0], y: Ld[1], collW: 6, collH: 5, solid: true });
-      if (!Ld[2]) layout.lamps.push({ x: Ld[0] + 5, y: Ld[1] - 29 });
-    });
-
-    /* ---- monkey camp + player camp decorations ---- */
-    addObj({ kind: "hut", x: 1180, y: 890, collW: 38, collH: 16, solid: true });
-    addObj({ kind: "hut", x: 1340, y: 968, collW: 38, collH: 16, solid: true });
-    addObj({ kind: "hut", x: 1230, y: 1070, collW: 38, collH: 16, solid: true });
-    addObj({ kind: "totem", x: 1410, y: 870, collW: 10, collH: 8, solid: true });
-    addObj({ kind: "fire", x: 1280, y: 965, solid: false });
-    layout.fires.push({ x: 1280, y: 960 });
-    addObj({ kind: "fire", x: 190, y: 1015, solid: false });
-    layout.fires.push({ x: 190, y: 1010 });
-    addObj({ kind: "sign", x: 310, y: 930, collW: 16, collH: 5, solid: true });
-    addObj({ kind: "sign", x: 850, y: 692, collW: 16, collH: 5, solid: true });
-
-    /* ---- plaza ruins ---- */
-    addObj({ kind: "fountain", x: 740, y: 430, collW: 46, collH: 16, solid: true });
-    [[570, 300], [910, 300], [570, 545], [910, 545]].forEach(function (cp) {
-      addObj({ kind: "column", x: cp[0], y: cp[1], collW: 10, collH: 7, solid: true });
-    });
-    [[640, 485], [845, 330], [1090, 640], [380, 560], [1180, 380]].forEach(function (rp, ri) {
-      addObj({ kind: "rubble", variant: ri % 3, x: rp[0], y: rp[1], collW: 16, collH: 8, solid: true });
-    });
-    [[520, 470], [880, 510], [1460, 540], [240, 660], [1090, 240]].forEach(function (rp) {
-      addObj({ kind: "rock", x: rp[0], y: rp[1], collW: 11, collH: 6, solid: true });
-    });
-
-    /* ---- trees (deterministic scatter via layout RNG) ---- */
+    /* ---- keep-clear regions (no scattered trees) ---- */
     var clearRects = [
-      { l: 500, t: 220, r: 960, b: 560 },     // plaza
-      { l: 1070, t: 760, r: 1540, b: 1140 },  // camp
-      { l: 1140, t: 70, r: 1520, b: 300 },    // station
-      { l: 0, t: 540, r: W, b: 700 },         // h-road corridor
-      { l: 690, t: 0, r: 830, b: H }          // v-road corridor
+      layout.cityRect,
+      { l: 200, t: 1430, r: 1320, b: 2320 },           // lake bbox
+      { l: 600, t: 1760, r: 840, b: 2020 },            // island
+      { l: 2740, t: 120, r: 3160, b: 430 },            // station
+      { l: 2900, t: 470, r: 3070, b: 650 },            // helipad
+      { l: 2070, t: 690, r: 2410, b: 1030 },           // plaza
+      { l: 1000, t: 1290, r: 1160, b: 1430 }           // workshop
     ];
-    builds.forEach(function (b) {
-      clearRects.push({ l: b[0] - b[2] / 2 - 14, t: b[1] - b[3] - 14, r: b[0] + b[2] / 2 + 14, b: b[1] + 14 });
+    layout.darkZones.forEach(function (d) { clearRects.push(d); });
+    layout.playerSpawns.forEach(function (s) { clearRects.push({ l: s.x - 70, t: s.y - 70, r: s.x + 70, b: s.y + 70 }); });
+    layout.roads.forEach(function (r) {
+      if (r.dir === "h") clearRects.push({ l: r.x - 16, t: r.y - 30, r: r.x + r.w + 16, b: r.y + r.h + 30 });
+      else clearRects.push({ l: r.x - 30, t: r.y - 16, r: r.x + r.w + 30, b: r.y + r.h + 16 });
     });
-    // keep spawns clear of trees too
-    clearRects.push({ l: 1340, t: 560, r: 1420, b: 640 });   // E spawn
-    clearRects.push({ l: 740, t: 1040, r: 820, b: 1120 });   // S spawn
-    clearRects.push({ l: 80, t: 560, r: 160, b: 640 });      // W spawn
 
-    function nearPath(tx2, ty2) {
+    function nearPath(x, y) {
       for (var pi = 0; pi < layout.paths.length; pi++) {
-        var p2 = layout.paths[pi];
-        for (var s2 = 0; s2 < p2.length - 1; s2++)
-          if (segDist(tx2, ty2, p2[s2][0], p2[s2][1], p2[s2 + 1][0], p2[s2 + 1][1]) < 28) return true;
+        var p = layout.paths[pi];
+        for (var s = 0; s < p.length - 1; s++)
+          if (segDist(x, y, p[s][0], p[s][1], p[s + 1][0], p[s + 1][1]) < 26) return true;
       }
       return false;
     }
-    function treeBlocked(tx2, ty2, treeList, minDist) {
-      if (dist(tx2, ty2, 220, 990) < 160) return true;            // start camp
-      if (dist(tx2, ty2, 1370, 468) < 105) return true;           // helipad
+    function inWater(x, y, pad) {
+      for (var i = 0; i < layout.water.length; i++) if (inRect(x, y, layout.water[i], pad || 0)) return true;
+      return false;
+    }
+    function blockedForTree(x, y, list, minDist) {
+      if (dist(x, y, 260, 980) < 150) return true;          // start camp
+      if (dist(x, y, layout.helipad.x, layout.helipad.y) < 110) return true;
+      if (inWater(x, y, 30)) return true;
       var ci;
-      for (ci = 0; ci < layout.chestSpots.length; ci++)
-        if (dist(tx2, ty2, layout.chestSpots[ci].x, layout.chestSpots[ci].y) < 46) return true;
-      for (ci = 0; ci < layout.monkeySpots.length; ci++)
-        if (dist(tx2, ty2, layout.monkeySpots[ci].x, layout.monkeySpots[ci].y) < 40) return true;
-      for (ci = 0; ci < clearRects.length; ci++) {
-        var r2 = clearRects[ci];
-        if (tx2 > r2.l && tx2 < r2.r && ty2 > r2.t && ty2 < r2.b) return true;
-      }
-      if (nearPath(tx2, ty2)) return true;
-      for (ci = 0; ci < treeList.length; ci++)
-        if (dist(tx2, ty2, treeList[ci][0], treeList[ci][1]) < minDist) return true;
+      for (ci = 0; ci < layout.chestSpots.length; ci++) if (dist(x, y, layout.chestSpots[ci].x, layout.chestSpots[ci].y) < 48) return true;
+      for (ci = 0; ci < layout.monkeySpots.length; ci++) if (dist(x, y, layout.monkeySpots[ci].x, layout.monkeySpots[ci].y) < 40) return true;
+      for (ci = 0; ci < clearRects.length; ci++) if (inRect(x, y, clearRects[ci])) return true;
+      if (nearPath(x, y)) return true;
+      for (ci = 0; ci < list.length; ci++) if (dist(x, y, list[ci][0], list[ci][1]) < minDist) return true;
       return false;
     }
 
-    var treePts = [], x, y, i;
-    // dense border ring (visual jungle wall behind the real border solid)
-    for (x = 30; x < W - 20; x += 44) {
-      treePts.push([x + wr(-10, 10), 36 + wr(-6, 14)]);
-      treePts.push([x + wr(-10, 10), H - 14 + wr(-12, 2)]);
+    /* ---- CITY: building grid with alleys + destroyed blocks ---- */
+    var cr = layout.cityRect, walls = [];
+    function nearRoad(x, y, pad) {
+      for (var i = 0; i < layout.roads.length; i++) {
+        var r = layout.roads[i];
+        if (x > r.x - pad && x < r.x + r.w + pad && y > r.y - pad && y < r.y + r.h + pad) return true;
+      }
+      return false;
     }
-    for (y = 70; y < H - 40; y += 46) {
-      treePts.push([28 + wr(-6, 12), y + wr(-10, 10)]);
-      treePts.push([W - 28 + wr(-12, 6), y + wr(-10, 10)]);
+    for (var gy = cr.t + 80; gy < cr.b - 40; gy += 230) {
+      for (var gx = cr.l + 90; gx < cr.r - 80; gx += 210) {
+        var bx = gx + wr(-12, 12), by = gy + wr(-10, 10);
+        if (nearRoad(bx, by, 46)) continue;                       // leave road corridors open
+        if (dist(bx, by, layout.plaza.x, layout.plaza.y) < 180) continue;
+        if (dist(bx, by, layout.station.x, layout.station.y) < 150) continue;
+        if (dist(bx, by, layout.helipad.x, layout.helipad.y) < 130) continue;
+        var roll = L();
+        if (roll < 0.16) continue;                                // alley / empty lot
+        if (roll < 0.30) {                                        // destroyed block -> rubble cluster
+          for (var rr2 = 0; rr2 < 4; rr2++) addObj({ kind: "rubble", variant: wri(0, 2), x: bx + wr(-40, 40), y: by + wr(-30, 30), collW: 16, collH: 8, solid: true });
+          continue;
+        }
+        var bw = wri(130, 180), bh = wri(96, 150);
+        if (bx - bw / 2 < cr.l + 10 || bx + bw / 2 > cr.r - 10) continue;
+        addObj({ kind: "building", x: bx, y: by + bh * 0.5, w: bw, h: bh, bseed: 100 + walls.length * 37, collW: bw, collH: bh - 26, solid: true });
+        walls.push(1);
+      }
     }
-    // hidden chest nook: ring of trees with a small western gap
-    [[1480, 1080], [1530, 1070], [1568, 1100], [1568, 1150], [1500, 1160]].forEach(function (tp) {
-      treePts.push(tp);
-    });
+    // station + tower + helipad furniture
+    addObj({ kind: "station", x: layout.station.x, y: layout.station.y, collW: 130, collH: 46, solid: true });
+    addObj({ kind: "tower", x: 2930, y: 300, collW: 18, collH: 12, solid: true });
+    // plaza ruins
+    addObj({ kind: "fountain", x: layout.plaza.x, y: layout.plaza.y, collW: 46, collH: 16, solid: true });
+    [[-70, -60], [70, -60], [-70, 70], [70, 70]].forEach(function (o) { addObj({ kind: "column", x: layout.plaza.x + o[0], y: layout.plaza.y + o[1], collW: 10, collH: 7, solid: true }); });
+    // cars + lamps + signs along roads
+    [[1680, 560], [2300, 612], [2900, 560], [1560, 1212], [2700, 1212], [820, 1212], [2380, 1500]].forEach(function (c, i) { addObj({ kind: i % 2 ? "carV" : "carH", variant: i % 3, x: c[0], y: c[1], collW: i % 2 ? 18 : 38, collH: i % 2 ? 22 : 12, solid: true }); });
+    var lampPts = [[1560, 596], [1900, 596], [2300, 596], [2640, 596], [3000, 596], [400, 1176], [900, 1176], [1500, 1176], [2100, 1176], [2700, 1176], [2376, 1500], [2376, 1900]];
+    lampPts.forEach(function (p, i) { var broken = i % 4 === 0; addObj({ kind: "lamp", broken: broken, x: p[0], y: p[1], collW: 6, collH: 5, solid: true }); if (!broken) layout.lamps.push({ x: p[0] + 5, y: p[1] - 29 }); });
+    [[2240, 700], [1620, 760], [2560, 980]].forEach(function (p) { addObj({ kind: "sign", x: p[0], y: p[1], collW: 16, collH: 5, solid: true }); });
+
+    /* ---- JUNGLE camp decorations (NW) ---- */
+    addObj({ kind: "fire", x: 240, y: 1005, solid: false }); layout.fires.push({ x: 240, y: 1000 });
+    addObj({ kind: "hut", x: 360, y: 880, collW: 38, collH: 16, solid: true });
+    addObj({ kind: "totem", x: 180, y: 900, collW: 10, collH: 8, solid: true });
+    addObj({ kind: "sign", x: 520, y: 1040, collW: 16, collH: 5, solid: true });
+    [[640, 320], [380, 600], [1000, 760]].forEach(function (p) { addObj({ kind: "rock", x: p[0], y: p[1], collW: 11, collH: 6, solid: true }); });
+
+    /* ---- SUNKEN area: workshop, docks, ruins, camp fire ---- */
+    addObj({ kind: "workshop", x: layout.workshop.x, y: layout.workshop.y, collW: 34, collH: 22, solid: true });
+    addObj({ kind: "fire", x: layout.workshop.x - 30, y: layout.workshop.y + 14, solid: false }); layout.fires.push({ x: layout.workshop.x - 30, y: layout.workshop.y + 10 });
+    [[690, 1470], [750, 1470], [690, 1690], [750, 1690]].forEach(function (p) { addObj({ kind: "dock", x: p[0], y: p[1], collW: 4, collH: 6, solid: false }); });
+    [[470, 1600], [1060, 1640], [950, 2120], [400, 2160], [1180, 1900], [640, 1620]].forEach(function (p, i) { addObj({ kind: "sunkenruin", variant: i % 2, x: p[0], y: p[1], collW: 18, collH: 10, solid: true }); });
+    // a couple of palms on the island for flavour
+    addObj({ kind: "palm", variant: 0, x: 680, y: 1840, collW: 8, collH: 6, solid: true });
+
+    /* ---- DARK ZONE: dead trees ---- */
+    var dz = layout.darkZones[0];
+    for (var dt = 0; dt < 26; dt++) {
+      var dx = wr(dz.l + 30, dz.r - 30), dy = wr(dz.t + 40, dz.b - 30);
+      if (nearRoad(dx, dy, 30)) continue;
+      var okd = true, ck;
+      for (ck = 0; ck < layout.chestSpots.length; ck++) if (dist(dx, dy, layout.chestSpots[ck].x, layout.chestSpots[ck].y) < 44) okd = false;
+      if (okd) addObj({ kind: "deadtree", variant: wri(0, 1), x: dx, y: dy, collW: 9, collH: 7, solid: true });
+    }
+
+    /* ---- big climbable hide trees (fixed coords) ---- */
+    layout.hideTrees.forEach(function (h) { addObj({ kind: "bigtree", variant: 0, x: h.x, y: h.y, collW: 12, collH: 9, solid: true }); });
+
+    /* ---- scattered jungle: border ring + groves (seeded) ---- */
+    var treePts = [], i, x, y;
+    for (x = 30; x < W - 20; x += 46) { treePts.push([x + wr(-10, 10), 34 + wr(-6, 14)]); treePts.push([x + wr(-10, 10), H - 14 + wr(-12, 2)]); }
+    for (y = 70; y < H - 40; y += 48) { treePts.push([26 + wr(-6, 12), y + wr(-10, 10)]); treePts.push([W - 26 + wr(-12, 6), y + wr(-10, 10)]); }
+    // tree ring sheltering the hidden bonus chest
+    [[1320, 200], [1440, 200], [1300, 320], [1460, 320], [1380, 340]].forEach(function (p) { treePts.push(p); });
     var scattered = [];
-    for (i = 0; i < 240 && scattered.length < 46; i++) {
-      var sx = 60 + L() * (W - 120), sy = 80 + L() * (H - 140);
-      if (treeBlocked(sx, sy, scattered, 52)) continue;
+    for (i = 0; i < 1100 && scattered.length < 200; i++) {
+      var sx = 40 + L() * (W - 80), sy = 60 + L() * (H - 120);
+      if (blockedForTree(sx, sy, scattered, 50)) continue;
       scattered.push([sx, sy]);
-    }
-    for (i = 0; i < 120 && scattered.length < 60; i++) {
-      var gx = 90 + L() * 330, gy = 110 + L() * 290;
-      if (treeBlocked(gx, gy, scattered, 44)) continue;
-      scattered.push([gx, gy]);
     }
     treePts = treePts.concat(scattered);
     treePts.forEach(function (tp, ti) {
@@ -219,23 +257,17 @@
     });
 
     /* ---- bushes (walk-through) + grass tufts (visual) ---- */
-    for (i = 0; i < 250 && layout.tufts.length < 46; i++) {
-      var ux = 50 + L() * (W - 100), uy = 50 + L() * (H - 100);
-      if (nearPath(ux, uy)) continue;
+    for (i = 0; i < 600 && layout.tufts.length < 150; i++) {
+      var ux = 40 + L() * (W - 80), uy = 40 + L() * (H - 80);
+      if (nearPath(ux, uy) || inWater(ux, uy, 0)) continue;
       layout.tufts.push({ x: ux, y: uy, phase: L() * 6.28 });
     }
-    for (i = 0; i < 90; i++) {
+    for (i = 0; i < 360; i++) {
       var bx2 = 50 + L() * (W - 100), by3 = 70 + L() * (H - 140);
-      if (treeBlocked(bx2, by3, [], 0)) continue;
+      if (blockedForTree(bx2, by3, [], 0)) continue;
       addObj({ kind: "bush", variant: wri(0, 1), x: bx2, y: by3, solid: false });
-      if (layout.objects.length > 460) break;
+      if (layout.objects.length > 1100) break;
     }
-
-    /* ---- big climbable hide trees (fixed coords, no RNG draw -> map unchanged) ---- */
-    [[470, 250], [300, 470], [1080, 760], [980, 1080]].forEach(function (hp) {
-      addObj({ kind: "bigtree", variant: 0, x: hp[0], y: hp[1], collW: 12, collH: 9, solid: true });
-      layout.hideTrees.push({ x: hp[0], y: hp[1] });
-    });
 
     return layout;
   }

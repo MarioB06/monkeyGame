@@ -52,7 +52,7 @@ step("match: snapshots stream + a player builds to win", function () {
   var room = hub.rooms[code], sim = room.sim;
   sim.monkeys.length = 0;                                  // isolate
   var A = sim.players[a.pid];
-  A.partIds = [0, 1, 2, 3, 4, 5]; A.parts = 6; A.maxHp = A.hp = 100000;
+  A.partIds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]; A.parts = 10; A.maxHp = A.hp = 100000;
   var st = sim.layout.station;
   var dt = 1 / CONFIG.MP.TICK_HZ, over = null;
   for (var i = 0; i < 400 && room.state === "playing"; i++) {
@@ -134,7 +134,7 @@ wireServer.listen(0, "127.0.0.1", function () {
       room.sim.monkeys.length = 0;
       var hostPid = room.players[0].pid, hp = room.sim.players[hostPid];
       if (!hp) return;
-      hp.partIds = [0, 1, 2, 3, 4, 5]; hp.parts = 6; hp.maxHp = hp.hp = 100000;
+      hp.partIds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]; hp.parts = 10; hp.maxHp = hp.hp = 100000;
       var st = room.sim.layout.station; hp.x = st.doorX; hp.y = st.doorY + 6;
       c1.conn.send(P.encode({ m: P.C2S.INPUT, seq: 1, move: { x: 0, y: 0 }, aim: 0, aimDist: 100, flags: 8 }));
     }, 40);

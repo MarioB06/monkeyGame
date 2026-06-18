@@ -11,9 +11,14 @@ There are two ways to play:
 Just **double-click `index.html`** — it runs straight from `file://` in any
 modern browser. No server needed.
 
-Wake up in a city swallowed by jungle, crack the monkey-guarded chests for the
-6 electronic parts, build the signal device at the radio station, and escape by
-helicopter.
+Wake up in a huge city swallowed by jungle. Explore the expanded city (with
+alleys and destroyed blocks), the jungle, a dark burnt zone full of fast
+**dark monkeys**, and a flooded ruin with a central island. Crack the
+region-themed monkey-guarded chests for all **10 electronic parts**, build the
+signal device at the radio station, and escape by helicopter.
+
+The water is impassable — to reach the island part, first find the **workshop**
+and press **E** to build a raft, then paddle across the marked ford.
 
 ## 2. Competitive multiplayer (online, 2–4 players)
 
@@ -27,11 +32,12 @@ Then open **http://localhost:8080** in 2–4 browser tabs (or on other devices o
 the same network via `http://<your-ip>:8080`). One player creates a room and
 shares the 4-letter code; the others join with it; the host starts the match.
 
-**Mode:** same map, free-for-all. Everyone needs all 6 parts. Parts are a
+**Mode:** same huge map, free-for-all. Everyone needs all 10 parts. Parts are a
 finite, contested resource — if a rival is carrying parts you need, **bonk them
 with bananas**: a defeated player drops everything they were holding. First to
-gather all 6 and build the signal at the station **wins**; building takes a few
-seconds and can be interrupted, so the station is the real battleground.
+gather all 10 and build the signal at the station **wins**; building takes a few
+seconds and can be interrupted, so the station is the real battleground. Each
+player builds their own raft at the workshop, so the island is contested too.
 
 **Hiding:** scattered around the jungle are a few **big climbable trees**. Stand
 next to one and press **E** to climb up and hide — monkeys lose your trail and

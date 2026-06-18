@@ -132,7 +132,7 @@ step("crack a chest -> collect a part", function () {
 });
 
 step("force win (6 parts -> build at station -> rescue -> win screen)", function () {
-  var p = G.sim.players.p1; p.partIds = [0, 1, 2, 3, 4, 5]; p.parts = 6; p.maxHp = p.hp = 100000;
+  var p = G.sim.players.p1; p.partIds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]; p.parts = 10; p.maxHp = p.hp = 100000;
   var st = G.layout.station; p.x = st.doorX; p.y = st.doorY + 6;
   keyDown("KeyE");
   for (var i = 0; i < 420 && G.state === "play"; i++) { p.x = st.doorX; p.y = st.doorY + 6; frames(1); }
@@ -162,6 +162,23 @@ step("hide tree: E toggles hidden through the client stack", function () {
   keyDown("KeyE"); frames(2);
   assert(p.hidden === false, "climbed down after E again");
   keyUp("KeyE"); frames(4);
+});
+
+step("render across all regions without errors", function () {
+  var p = G.sim.players.p1; p.hasRaft = true; p.hurtT = 2;
+  [[2400, 600], [2560, 360], [2400, 1800], [2750, 2050], [760, 1500], [720, 1890], [300, 1360]].forEach(function (pt) {
+    p.x = pt[0]; p.y = pt[1];
+    G.fx.camera.jumpTo(pt[0], pt[1]);
+    frames(3);
+  });
+});
+
+step("workshop: E builds a raft", function () {
+  var p = G.sim.players.p1; p.hurtT = 0; p.hasRaft = false;
+  var ws = G.layout.workshop; p.x = ws.x; p.y = ws.y + 8;
+  keyDown("KeyE"); frames(2);
+  assert(p.hasRaft === true, "raft built at the workshop via E");
+  keyUp("KeyE"); frames(2);
 });
 
 step("soak: 400 frames of random input", function () {
