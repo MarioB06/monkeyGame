@@ -203,6 +203,10 @@ body {
   text-shadow: calc(var(--ui) * 1px) calc(var(--ui) * 1px) 0 #000;
   padding: calc(var(--ui) * 8px);
   z-index: 5;
+  /* Let clicks fall through to the game canvas underneath (canvas owns the
+     click-to-start / throw handlers). Interactive controls below re-enable
+     pointer events for themselves. */
+  pointer-events: none;
 }
 
 .hidden { display: none !important; }
@@ -292,6 +296,7 @@ body {
   padding: calc(var(--ui) * 2px) calc(var(--ui) * 3px);
   width: calc(var(--ui) * 90px);
   outline: none;
+  pointer-events: auto;   /* re-enable: parent .screen is pointer-events:none */
 }
 .form-row input:focus { border-color: #7ab06a; }
 
